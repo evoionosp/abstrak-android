@@ -17,7 +17,7 @@ A simple Android client for [Audiobookshelf](https://www.audiobookshelf.org/).
 You’ll need [Android Studio](https://developer.android.com/studio) and an Audiobookshelf server.
 
 ```bash
-git clone https://github.com/evoionosp/Abstrak.git
+git clone https://github.com/evoionosp/abstrak-android.git
 ```
 
 Open the project in Android Studio, let Gradle sync, then run the `app` configuration on a device or emulator.
