@@ -1,0 +1,161 @@
+package org.evoionosp.abstrak.presentation.player.theme
+import android.graphics.Bitmap
+import android.graphics.Color as AndroidColor
+import android.graphics.drawable.BitmapDrawable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import coil.Coil
+import coil.request.ImageRequest
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private const val SAMPLE_DECODE_PX = 64
+private val artPaletteCache = ConcurrentHashMap<Any, ArtPalette>()
+
+internal data class ArtPalette(
+    val dominant: Color,
+    val vibrant: Color,
+)
+
+@Composable
+internal fun rememberArtPalette(request: ImageRequest): ArtPalette? {
+    val context = LocalContext.current
+    val key = request.data
+    var palette by remember(key) { mutableStateOf(artPaletteCache[key]) }
+    LaunchedEffect(key) {
+        if (palette != null) return@LaunchedEffect
+        val sampled =
+            withContext(Dispatchers.Default) {
+                try {
+                    val result =
+                        Coil.imageLoader(context).execute(
+                            request
+                                .newBuilder()
+                                .allowHardware(false)
+                                .size(SAMPLE_DECODE_PX, SAMPLE_DECODE_PX)
+                                .build(),
+                        )
+                    val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
+                    bitmap?.let(::sampleArtPalette)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        if (sampled != null) artPaletteCache[key] = sampled
+        palette = sampled
+    }
+    return palette
+}
+
+internal fun Color.mixedWith(
+    other: Color,
+    ratio: Float,
+): Color {
+    val r = ratio.coerceIn(0f, 1f)
+    return Color(
+        red * (1 - r) + other.red * r,
+        green * (1 - r) + other.green * r,
+        blue * (1 - r) + other.blue * r,
+        alpha * (1 - r) + other.alpha * r,
+    )
+}
+
+private fun sampleArtPalette(bitmap: Bitmap): ArtPalette? {
+    if (bitmap.isRecycled) return null
+    val thumb = Bitmap.createScaledBitmap(bitmap, 8, 8, true)
+    val pixels = IntArray(thumb.width * thumb.height)
+    thumb.getPixels(pixels, 0, thumb.width, 0, 0, thumb.width, thumb.height)
+    if (thumb !== bitmap) thumb.recycle()
+    val opaque = pixels.filter { AndroidColor.alpha(it) >= 128 }.toIntArray()
+    if (opaque.isEmpty()) return null
+    var redSum = 0L
+    var greenSum = 0L
+    var blueSum = 0L
+    for (pixel in opaque) {
+        redSum += AndroidColor.red(pixel)
+        greenSum += AndroidColor.green(pixel)
+        blueSum += AndroidColor.blue(pixel)
+    }
+    val hsv = FloatArray(3)
+    AndroidColor.RGBToHSV(
+        (redSum / opaque.size).toInt(),
+        (greenSum / opaque.size).toInt(),
+        (blueSum / opaque.size).toInt(),
+        hsv,
+    )
+    hsv[1] = (hsv[1] * 1.4f + 0.08f).coerceIn(0f, 1f)
+    return ArtPalette(
+        dominant = Color(AndroidColor.HSVToColor(hsv)),
+        vibrant = Color(scoreVibrantSeed(opaque)),
+    )
+}
+
+private const val VIBRANT_HUE_BUCKETS = 12
+private const val MIN_VIBRANT_MEAN_SATURATION = 0.10
+
+internal fun scoreVibrantSeed(pixels: IntArray): Int {
+    require(pixels.isNotEmpty())
+    var rSum = 0L
+    var gSum = 0L
+    var bSum = 0L
+    val satMass = DoubleArray(VIBRANT_HUE_BUCKETS)
+    val bucketR = LongArray(VIBRANT_HUE_BUCKETS)
+    val bucketG = LongArray(VIBRANT_HUE_BUCKETS)
+    val bucketB = LongArray(VIBRANT_HUE_BUCKETS)
+    val bucketN = IntArray(VIBRANT_HUE_BUCKETS)
+    for (argb in pixels) {
+        val r = (argb shr 16) and 0xFF
+        val g = (argb shr 8) and 0xFF
+        val b = argb and 0xFF
+        rSum += r
+        gSum += g
+        bSum += b
+        val hsv = rgbToHsv(r, g, b)
+        val bucket = ((hsv[0] / 360f * VIBRANT_HUE_BUCKETS).toInt()) % VIBRANT_HUE_BUCKETS
+        satMass[bucket] += hsv[1].toDouble()
+        bucketR[bucket] += r
+        bucketG[bucket] += g
+        bucketB[bucket] += b
+        bucketN[bucket] += 1
+    }
+    val n = pixels.size
+    val avg = (0xFF shl 24) or ((rSum / n).toInt() shl 16) or ((gSum / n).toInt() shl 8) or (bSum / n).toInt()
+    var best = 0
+    for (i in 1 until VIBRANT_HUE_BUCKETS) {
+        if (satMass[i] > satMass[best]) best = i
+    }
+    if (bucketN[best] == 0 || satMass[best] < n * MIN_VIBRANT_MEAN_SATURATION) return avg
+    return (0xFF shl 24) or
+        ((bucketR[best] / bucketN[best]).toInt() shl 16) or
+        ((bucketG[best] / bucketN[best]).toInt() shl 8) or
+        (bucketB[best] / bucketN[best]).toInt()
+}
+
+internal fun rgbToHsv(
+    r: Int,
+    g: Int,
+    b: Int,
+): FloatArray {
+    val rf = r / 255f
+    val gf = g / 255f
+    val bf = b / 255f
+    val max = maxOf(rf, gf, bf)
+    val min = minOf(rf, gf, bf)
+    val delta = max - min
+    val h =
+        when {
+            delta == 0f -> 0f
+            max == rf -> 60f * (((gf - bf) / delta) % 6f)
+            max == gf -> 60f * ((bf - rf) / delta + 2f)
+            else -> 60f * ((rf - gf) / delta + 4f)
+        }
+    val s = if (max == 0f) 0f else delta / max
+    return floatArrayOf((h + 360f) % 360f, s, max)
+}
