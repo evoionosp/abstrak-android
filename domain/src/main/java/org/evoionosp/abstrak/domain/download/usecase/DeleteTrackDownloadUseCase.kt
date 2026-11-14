@@ -1,0 +1,19 @@
+package org.evoionosp.abstrak.domain.download.usecase
+import javax.inject.Inject
+import org.evoionosp.abstrak.domain.download.repository.DownloadRepository
+
+class DeleteTrackDownloadUseCase
+    @Inject
+    constructor(
+        private val downloadRepository: DownloadRepository,
+    ) {
+        suspend operator fun invoke(
+            audiobookId: String,
+            trackIndex: Int,
+        ) {
+            downloadRepository.deleteTrack(
+                audiobookId = audiobookId,
+                trackIndex = trackIndex,
+            )
+        }
+    }
