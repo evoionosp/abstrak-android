@@ -1,6 +1,8 @@
 package org.evoionosp.abstrak.presentation.designsystem.theme
 import androidx.compose.ui.graphics.Color
 
+internal val appIconBackground = Color(0xFFF0EAD6)
+
 internal val primaryLight = Color(0xFF36693E)
 internal val onPrimaryLight = Color(0xFFFFFFFF)
 internal val primaryContainerLight = Color(0xFFB8F1B9)
