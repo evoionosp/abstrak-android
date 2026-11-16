@@ -21,10 +21,7 @@ class SettingsViewModel
             appSettingsStore.settings
                 .map { settings ->
                     SettingsUiState(
-                        themePreference =
-                            ThemePreference.entries.firstOrNull {
-                                it.name == settings.themePreference
-                            } ?: ThemePreference.SYSTEM,
+                        themePreference = ThemePreference.fromName(settings.themePreference),
                         useDynamicColor = settings.useDynamicColor,
                         useCoverTheme = settings.useCoverTheme,
                         useMoonlessNight = settings.useMoonlessNight,

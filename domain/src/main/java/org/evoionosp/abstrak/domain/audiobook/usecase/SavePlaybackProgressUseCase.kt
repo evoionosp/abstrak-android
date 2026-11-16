@@ -17,6 +17,11 @@ class SavePlaybackProgressUseCase
         private val progressSyncScheduler: ProgressSyncScheduler,
         private val calculator: PlaybackPositionCalculator,
     ) {
+        /**
+         * [updatedAtMillis] is when [absoluteSeconds] was read, in Unix epoch milliseconds on this
+         * device's clock. It goes to the server as the progress lastUpdate and stays on a queued
+         * row, so later merges compare when the listening happened rather than when it was sent.
+         */
         suspend operator fun invoke(
             baseUrl: String,
             accessToken: String,
@@ -24,6 +29,7 @@ class SavePlaybackProgressUseCase
             audiobookId: String,
             absoluteSeconds: Double,
             totalSeconds: Double?,
+            updatedAtMillis: Long,
         ): DomainResult<Unit> {
             val isFinished = calculator.isFinished(absoluteSeconds, totalSeconds)
             audiobookRepository.recordListeningProgress(
@@ -37,6 +43,7 @@ class SavePlaybackProgressUseCase
                     currentTimeSeconds = absoluteSeconds,
                     durationSeconds = totalSeconds,
                     isFinished = isFinished,
+                    lastUpdateMillis = updatedAtMillis,
                 )
             if (pendingProgressStore.get(audiobookId) != null) {
                 queue(libraryId, audiobookId, progress)

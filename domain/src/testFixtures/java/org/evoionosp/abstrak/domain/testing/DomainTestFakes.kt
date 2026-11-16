@@ -185,18 +185,23 @@ class FakeAudiobookRepository(
     }
 }
 
+/**
+ * Keeps the time each progress carries, as the real store does. Progress with no time gets the
+ * next tick of a counter starting at 1, standing in for the real store's current-time fallback.
+ */
 class FakePendingProgressStore : PendingProgressStore {
     private val rows = LinkedHashMap<String, PendingProgress>()
-    private var lastSavedAtMillis = 0L
+    private var lastTick = 0L
     var beforeRemove: (suspend (PendingProgress) -> Unit)? = null
-    val queued: List<PendingProgress> get() = rows.values.sortedBy { it.savedAtMillis }
+    val queued: List<PendingProgress> get() = rows.values.sortedBy { it.progress.lastUpdateMillis }
 
     override suspend fun put(
         libraryId: String,
         audiobookId: String,
         progress: PlaybackProgress,
     ) {
-        rows[audiobookId] = PendingProgress(libraryId, audiobookId, progress, ++lastSavedAtMillis)
+        val dated = if (progress.lastUpdateMillis > 0L) progress else progress.copy(lastUpdateMillis = ++lastTick)
+        rows[audiobookId] = PendingProgress(libraryId, audiobookId, dated)
     }
 
     override suspend fun get(audiobookId: String): PendingProgress? = rows[audiobookId]

@@ -282,7 +282,7 @@ class AudiobookRepositoryImplTest {
         }
 
     @Test
-    fun `refreshContinueListening keeps queued progress further along than the server's`() =
+    fun `refreshContinueListening keeps newer queued progress than the server's`() =
         runTest(testDispatcher) {
             database.pendingProgressDao().upsert(queued("item1", seconds = 600.0, savedAtMillis = 5_000L))
             serverRule.enqueueJson(200, """{"results": [${bookJson(id = "item1", currentTime = 120.5)}]}""")
@@ -293,10 +293,13 @@ class AudiobookRepositoryImplTest {
         }
 
     @Test
-    fun `refreshContinueListening takes the server's progress further along than the queued`() =
+    fun `refreshContinueListening takes the server's more recent progress than the queued`() =
         runTest(testDispatcher) {
             database.pendingProgressDao().upsert(queued("item1", seconds = 60.0))
-            serverRule.enqueueJson(200, """{"results": [${bookJson(id = "item1", currentTime = 120.5)}]}""")
+            serverRule.enqueueJson(
+                200,
+                """{"results": [${bookJson(id = "item1", currentTime = 120.5, progressLastUpdate = 2_000L)}]}""",
+            )
             repository.refreshContinueListening(baseUrl = serverRule.baseUrl(), accessToken = "token", libraryId = "lib1")
             repository.observeContinueListening("lib1").test {
                 assertEquals(120.5, awaitItem().single().progressSeconds!!, 0.001)
@@ -314,6 +317,20 @@ class AudiobookRepositoryImplTest {
                 val shelf = awaitItem()
                 assertEquals(listOf("cached", "item1"), shelf.map { it.id })
                 assertEquals(42.0, shelf.first().progressSeconds!!, 0.001)
+            }
+        }
+
+    @Test
+    fun `refreshContinueListening keeps a book whose progress failed to load over an older queued finish`() =
+        runTest(testDispatcher) {
+            database.pendingProgressDao().upsert(
+                queued("item1", seconds = 7_260.0, isFinished = true, savedAtMillis = 1_000L),
+            )
+            serverRule.enqueueJson(200, """{"results": [${bookJson(id = "item1", progressLastUpdate = 9_000L)}]}""")
+            serverRule.enqueueJson(500, "{}")
+            repository.refreshContinueListening(baseUrl = serverRule.baseUrl(), accessToken = "token", libraryId = "lib1")
+            repository.observeContinueListening("lib1").test {
+                assertEquals(listOf("item1"), awaitItem().map { it.id })
             }
         }
 
@@ -434,7 +451,7 @@ class AudiobookRepositoryImplTest {
         runTest(testDispatcher) {
             serverRule.enqueueJson(
                 200,
-                """{"currentTime": 120.5, "duration": 600.0, "isFinished": false}""",
+                """{"currentTime": 120.5, "duration": 600.0, "isFinished": false, "lastUpdate": 1700000000000}""",
             )
             val result =
                 repository.fetchProgress(
@@ -443,7 +460,7 @@ class AudiobookRepositoryImplTest {
                     audiobookId = "item1",
                 )
             assertEquals(
-                DomainResult.Success(PlaybackProgress(120.5, 600.0, false)),
+                DomainResult.Success(PlaybackProgress(120.5, 600.0, false, lastUpdateMillis = 1_700_000_000_000L)),
                 result,
             )
         }
@@ -469,6 +486,27 @@ class AudiobookRepositoryImplTest {
                     audiobookId = "item1",
                 ),
             )
+        }
+
+    @Test
+    fun `saveProgress sends when the position was recorded as lastUpdate`() =
+        runTest(testDispatcher) {
+            serverRule.enqueueJson(200, "{}")
+            serverRule.enqueueJson(200, "{}")
+            repository.saveProgress(
+                baseUrl = serverRule.baseUrl(),
+                accessToken = "token",
+                audiobookId = "item1",
+                progress = PlaybackProgress(150.0, 300.0, false, lastUpdateMillis = 1_700_000_000_000L),
+            )
+            assertEquals(1_700_000_000_000L, JSONObject(serverRule.takeRequest().body.readUtf8()).getLong("lastUpdate"))
+            repository.saveProgress(
+                baseUrl = serverRule.baseUrl(),
+                accessToken = "token",
+                audiobookId = "item1",
+                progress = PlaybackProgress(150.0, 300.0, false),
+            )
+            assertFalse(JSONObject(serverRule.takeRequest().body.readUtf8()).has("lastUpdate"))
         }
 
     @Test
@@ -913,12 +951,14 @@ class AudiobookRepositoryImplTest {
         libraryId: String = "lib1",
         mediaType: String = "book",
         currentTime: Double? = null,
+        progressLastUpdate: Long? = null,
     ): String {
         val progress =
             currentTime?.let { """, "userMediaProgress": {"currentTime": $it, "isFinished": false}""" }.orEmpty()
+        val updated = progressLastUpdate?.let { """, "progressLastUpdate": $it""" }.orEmpty()
         return """{"id": "$id", "libraryId": "$libraryId", "mediaType": "$mediaType",
             "media": {"duration": 7265.0,
-              "metadata": {"title": "Dune", "authorName": "Herbert, Frank"}}$progress}"""
+              "metadata": {"title": "Dune", "authorName": "Herbert, Frank"}}$progress$updated}"""
     }
 
     private fun minifiedJson(

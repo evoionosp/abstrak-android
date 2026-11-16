@@ -102,7 +102,7 @@ class PlaybackConnectionTest {
             graph.connection.pause()
             runCurrent()
             verify { graph.controller.pause() }
-            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 0.0, 300.0) }
+            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 0.0, 300.0, any()) }
         }
 
     @Test
@@ -117,7 +117,7 @@ class PlaybackConnectionTest {
             graph.connection.pause()
             runCurrent()
             verify { graph.controller.pause() }
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -193,47 +193,150 @@ class PlaybackConnectionTest {
         }
 
     @Test
-    fun `server progress pulled further along moves the loaded book there`() =
+    fun `newer server progress further along moves a paused book there`() =
         runTest {
-            val graph = graph()
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
             loadBook(graph)
             every { graph.controller.currentMediaItemIndex } returns 0
             every { graph.controller.currentPosition } returns 10_000L
-            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0)))
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = clock.timeMs + 1)))
             runCurrent()
             verify { graph.controller.seekTo(2, 50_000L) }
             assertEquals(250.0, graph.connection.playbackState.value.currentBookPositionSeconds, 0.001)
         }
 
     @Test
+    fun `newer server progress behind a paused book moves it back`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            every { graph.controller.currentMediaItemIndex } returns 2
+            every { graph.controller.currentPosition } returns 50_000L
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(120.0, updatedAt = clock.timeMs + 1)))
+            runCurrent()
+            verify { graph.controller.seekTo(1, 20_000L) }
+            assertEquals(120.0, graph.connection.playbackState.value.currentBookPositionSeconds, 0.001)
+        }
+
+    @Test
     fun `moving to pulled progress tells the listener where`() =
         runTest {
-            val graph = graph()
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
             loadBook(graph)
             val notices = collectNotices(graph)
-            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0)))
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = clock.timeMs + 1)))
             runCurrent()
             assertEquals(listOf(PlaybackNotice.MovedToServerProgress(250.0)), notices)
         }
 
     @Test
-    fun `server progress pulled behind the player leaves it where it is`() =
+    fun `server progress no newer than the loaded book's leaves it where it is`() =
         runTest {
-            val graph = graph()
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
             loadBook(graph)
-            every { graph.controller.currentMediaItemIndex } returns 2
-            every { graph.controller.currentPosition } returns 50_000L
-            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(120.0)))
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = clock.timeMs)))
             runCurrent()
             verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
         }
 
     @Test
+    fun `server progress older than listening here leaves the book where it is`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            val serverUpdatedAt = clock.timeMs + 5_000L
+            every { graph.controller.isPlaying } returns true
+            clock.timeMs += 10_000L
+            advanceTimeBy(1_000L)
+            runCurrent()
+            every { graph.controller.isPlaying } returns false
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = serverUpdatedAt)))
+            runCurrent()
+            verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
+        }
+
+    @Test
+    fun `server progress older than a seek here leaves the book where it is`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            val serverUpdatedAt = clock.timeMs + 5_000L
+            clock.timeMs += 10_000L
+            graph.connection.seekBackward()
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = serverUpdatedAt)))
+            runCurrent()
+            verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
+        }
+
+    @Test
+    fun `an echo of a save made here leaves the book where it is`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            listenPastSaveWait(graph)
+            clock.timeMs += 60_000L
+            graph.connection.pause()
+            runCurrent()
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = clock.timeMs)))
+            runCurrent()
+            verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
+        }
+
+    @Test
+    fun `a playing book stays where it is`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            every { graph.controller.isPlaying } returns true
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = clock.timeMs + 1)))
+            runCurrent()
+            verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
+        }
+
+    @Test
+    fun `newer server progress where the book already is moves nothing and says nothing`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            val notices = collectNotices(graph)
+            every { graph.controller.currentMediaItemIndex } returns 2
+            every { graph.controller.currentPosition } returns 50_000L
+            graph.pulledProgress.publish(PulledProgress("book-1", progressAt(250.0, updatedAt = clock.timeMs + 1)))
+            runCurrent()
+            verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
+            assertTrue(notices.isEmpty())
+        }
+
+    @Test
+    fun `the same pulled progress moves the book once`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            val pulled = PulledProgress("book-1", progressAt(250.0, updatedAt = clock.timeMs + 1))
+            graph.pulledProgress.publish(pulled)
+            runCurrent()
+            graph.pulledProgress.publish(pulled)
+            runCurrent()
+            verify(exactly = 1) { graph.controller.seekTo(any<Int>(), any<Long>()) }
+        }
+
+    @Test
     fun `server progress pulled for another book leaves the player alone`() =
         runTest {
-            val graph = graph()
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
             loadBook(graph)
-            graph.pulledProgress.publish(PulledProgress("book-2", progressAt(250.0)))
+            graph.pulledProgress.publish(PulledProgress("book-2", progressAt(250.0, updatedAt = clock.timeMs + 1)))
             runCurrent()
             verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
         }
@@ -241,13 +344,27 @@ class PlaybackConnectionTest {
     @Test
     fun `a book finished on another device keeps playing where it is`() =
         runTest {
-            val graph = graph()
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
             loadBook(graph)
-            graph.pulledProgress.publish(
-                PulledProgress("book-1", PlaybackProgress(299.0, durationSeconds = 300.0, isFinished = true)),
-            )
+            val finished =
+                PlaybackProgress(299.0, durationSeconds = 300.0, isFinished = true, lastUpdateMillis = clock.timeMs + 1)
+            graph.pulledProgress.publish(PulledProgress("book-1", finished))
             runCurrent()
             verify(exactly = 0) { graph.controller.seekTo(any<Int>(), any<Long>()) }
+        }
+
+    @Test
+    fun `a save carries the time its position was read`() =
+        runTest {
+            val clock = ManualClock()
+            val graph = graph(clock = clock)
+            loadBook(graph)
+            listenPastSaveWait(graph)
+            clock.timeMs = 2_000_000L
+            graph.connection.pause()
+            runCurrent()
+            coVerify { graph.saveProgress(any(), any(), "lib-1", "book-1", any(), any(), 2_000_000L) }
         }
 
     @Test
@@ -375,11 +492,11 @@ class PlaybackConnectionTest {
             every { graph.controller.isPlaying } returns true
             advanceTimeBy(14_000)
             runCurrent()
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
             advanceTimeBy(1_000)
             runCurrent()
             coVerify(exactly = 1) {
-                graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 120.0, 300.0)
+                graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 120.0, 300.0, any())
             }
         }
 
@@ -397,7 +514,7 @@ class PlaybackConnectionTest {
             runCurrent()
             graph.connection.pause()
             runCurrent()
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -408,7 +525,7 @@ class PlaybackConnectionTest {
             listenPastSaveWait(graph)
             graph.connection.playAudiobook(testAudiobook().copy(id = "book-2"))
             runCurrent()
-            coVerify(exactly = 1) { graph.saveProgress(any(), any(), "lib-1", "book-1", any(), any()) }
+            coVerify(exactly = 1) { graph.saveProgress(any(), any(), "lib-1", "book-1", any(), any(), any()) }
         }
 
     @Test
@@ -424,7 +541,7 @@ class PlaybackConnectionTest {
             every { graph.controller.currentPosition } returns 100_000L
             listener.onEvents(graph.controller, stateChanged)
             runCurrent()
-            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 300.0, 300.0) }
+            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 300.0, 300.0, any()) }
         }
 
     @Test
@@ -437,7 +554,7 @@ class PlaybackConnectionTest {
             every { graph.controller.currentPosition } returns 30_000L
             graph.connection.stopPlayback()
             runCurrent()
-            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 130.0, 300.0) }
+            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 130.0, 300.0, any()) }
         }
 
     @Test
@@ -666,7 +783,7 @@ class PlaybackConnectionTest {
             graph.connection.seekToBookSeconds(250.0)
             runCurrent()
             verify { graph.controller.seekTo(2, 50_000L) }
-            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 0.0, 300.0) }
+            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 0.0, 300.0, any()) }
         }
 
     @Test
@@ -675,7 +792,7 @@ class PlaybackConnectionTest {
             val graph = graph()
             graph.connection.seekToBookSeconds(12.5)
             verify { graph.controller.seekTo(12_500L) }
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -738,10 +855,10 @@ class PlaybackConnectionTest {
             every { graph.controller.isPlaying } returns true
             advanceTimeBy(15_000)
             runCurrent()
-            coVerify(exactly = 1) { graph.saveProgress(any(), any(), any(), any(), 0.0, 300.0) }
+            coVerify(exactly = 1) { graph.saveProgress(any(), any(), any(), any(), 0.0, 300.0, any()) }
             advanceTimeBy(15_000)
             runCurrent()
-            coVerify(exactly = 2) { graph.saveProgress(any(), any(), any(), any(), 0.0, 300.0) }
+            coVerify(exactly = 2) { graph.saveProgress(any(), any(), any(), any(), 0.0, 300.0, any()) }
         }
 
     @Test
@@ -750,7 +867,7 @@ class PlaybackConnectionTest {
             val graph = graph()
             loadBook(graph)
             advanceTimeBy(60_000)
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -761,7 +878,7 @@ class PlaybackConnectionTest {
             listenPastSaveWait(graph)
             every { graph.controller.currentMediaItemIndex } returns C.INDEX_UNSET
             graph.connection.pause()
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -776,7 +893,7 @@ class PlaybackConnectionTest {
             runCurrent()
             every { graph.controller.isPlaying } returns false
             graph.connection.pause()
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -791,7 +908,7 @@ class PlaybackConnectionTest {
             runCurrent()
             every { graph.controller.isPlaying } returns false
             graph.connection.pause()
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -804,7 +921,7 @@ class PlaybackConnectionTest {
             graph.connection.setPlaybackSpeed(2.0f)
             graph.connection.playAudiobook(testAudiobook())
             runCurrent()
-            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any()) }
+            coVerify(exactly = 0) { graph.saveProgress(any(), any(), any(), any(), any(), any(), any()) }
             graph.connection.playbackState.test {
                 assertNull(awaitItem().audiobook)
                 cancelAndIgnoreRemainingEvents()
@@ -835,7 +952,7 @@ class PlaybackConnectionTest {
             listenPastSaveWait(graph)
             graph.connection.stopForLogout()
             coVerifyOrder {
-                graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 0.0, 300.0)
+                graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 0.0, 300.0, any())
                 graph.controller.stop()
             }
             verify { graph.controller.clearMediaItems() }
@@ -851,7 +968,9 @@ class PlaybackConnectionTest {
             val graph = graph()
             loadBook(graph)
             listenPastSaveWait(graph)
-            coEvery { graph.saveProgress(any(), any(), any(), any(), any(), any()) } throws RuntimeException("save boom")
+            coEvery {
+                graph.saveProgress(any(), any(), any(), any(), any(), any(), any())
+            } throws RuntimeException("save boom")
             try {
                 graph.connection.stopForLogout()
                 fail("expected the flush failure to propagate")
@@ -1037,7 +1156,7 @@ class PlaybackConnectionTest {
         val resolveResume = mockk<ResolveResumePositionUseCase>()
         coEvery { resolveResume(any(), any(), any()) } returns 0.0
         val saveProgress = mockk<SavePlaybackProgressUseCase>()
-        coEvery { saveProgress(any(), any(), any(), any(), any(), any()) } returns DomainResult.Success(Unit)
+        coEvery { saveProgress(any(), any(), any(), any(), any(), any(), any()) } returns DomainResult.Success(Unit)
         val scope = CoroutineScope(backgroundScope.coroutineContext + StandardTestDispatcher(testScheduler))
         val session = MutableStateFlow<LoginSession?>(testSession())
         val observeSession = mockk<ObserveSessionUseCase>()
@@ -1142,7 +1261,10 @@ class PlaybackConnectionTest {
     @OptIn(UnstableApi::class)
     private fun playbackError(errorCode: Int) = PlaybackException("test", null, errorCode)
 
-    private fun progressAt(seconds: Double) = PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false)
+    private fun progressAt(
+        seconds: Double,
+        updatedAt: Long = 0L,
+    ) = PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false, lastUpdateMillis = updatedAt)
 
     private fun testSession() =
         LoginSession(
@@ -1247,7 +1369,7 @@ class PlaybackConnectionTest {
             runCurrent()
             assertEquals(SleepTimerState.Off, graph.connection.playbackState.value.sleepTimer)
             verify { graph.controller.pause() }
-            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 60.0, 300.0) }
+            coVerify { graph.saveProgress("https://example.com", "access-1", "lib-1", "book-1", 60.0, 300.0, any()) }
         }
 
     @Test

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Plain white, like the launcher icon background (not backgroundLight). -->
+    <color name="splash_screen_background">#FFFFFF</color>
+</resources>

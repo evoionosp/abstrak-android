@@ -32,7 +32,9 @@ class PendingProgressStoreImpl
                         currentTimeSeconds = progress.currentTimeSeconds,
                         durationSeconds = progress.durationSeconds,
                         isFinished = progress.isFinished,
-                        savedAtMillis = System.currentTimeMillis(),
+                        // The save's own time, so merges and the server's lastUpdate see when the
+                        // listening happened. Undated progress is stamped now, as before.
+                        savedAtMillis = progress.lastUpdateMillis.takeIf { it > 0L } ?: System.currentTimeMillis(),
                     ),
                 )
             }
@@ -48,7 +50,7 @@ class PendingProgressStoreImpl
             bestEffort("Removing queued progress of ${pending.audiobookId}", false) {
                 dao.deleteIfUnchanged(
                     audiobookId = pending.audiobookId,
-                    savedAtMillis = pending.savedAtMillis,
+                    savedAtMillis = pending.progress.lastUpdateMillis,
                     currentTimeSeconds = pending.progress.currentTimeSeconds,
                     isFinished = pending.progress.isFinished,
                 ) > 0
@@ -80,7 +82,6 @@ internal fun PendingProgressEntity.toDomain(): PendingProgress =
         libraryId = libraryId,
         audiobookId = audiobookId,
         progress = toPlaybackProgress(),
-        savedAtMillis = savedAtMillis,
     )
 
 internal fun PendingProgressEntity.toPlaybackProgress(): PlaybackProgress =
@@ -88,4 +89,5 @@ internal fun PendingProgressEntity.toPlaybackProgress(): PlaybackProgress =
         currentTimeSeconds = currentTimeSeconds,
         durationSeconds = durationSeconds,
         isFinished = isFinished,
+        lastUpdateMillis = savedAtMillis,
     )

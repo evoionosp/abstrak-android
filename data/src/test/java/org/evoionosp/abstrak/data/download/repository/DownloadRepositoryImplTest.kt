@@ -577,16 +577,22 @@ class DownloadRepositoryImplTest {
             val fileStore = DownloadFileStore(tempDir.root)
             val present = fileStore.trackFile("book-1", 0, "mp3").apply { parentFile?.mkdirs() }
             present.writeText("audio")
+            val empty = fileStore.trackFile("book-1", 3, "mp3").apply { writeBytes(ByteArray(0)) }
+            val directory = File(tempDir.root, "book-1/track_4.mp3").apply { mkdirs() }
             dao.upsertAll(
                 listOf(
                     testTrackDownloadEntity(trackIndex = 0, status = DownloadStatus.COMPLETED, localPath = present.absolutePath),
                     testTrackDownloadEntity(trackIndex = 1, status = DownloadStatus.COMPLETED, localPath = "/nope/track_1.mp3"),
                     testTrackDownloadEntity(trackIndex = 2, status = DownloadStatus.QUEUED),
+                    testTrackDownloadEntity(trackIndex = 3, status = DownloadStatus.COMPLETED, localPath = empty.absolutePath),
+                    testTrackDownloadEntity(trackIndex = 4, status = DownloadStatus.COMPLETED, localPath = directory.absolutePath),
                 ),
             )
             assertEquals(present.absolutePath, repository.localFileForTrack("book-1", 0))
             assertNull(repository.localFileForTrack("book-1", 1))
             assertNull(repository.localFileForTrack("book-1", 2))
+            assertNull(repository.localFileForTrack("book-1", 3))
+            assertNull(repository.localFileForTrack("book-1", 4))
             assertNull(repository.localFileForTrack("book-1", 9))
         }
 
@@ -655,6 +661,25 @@ class DownloadRepositoryImplTest {
             assertFalse(oldOrphan.exists())
             assertTrue(freshOrphan.exists())
             assertFalse(ghostDir.exists())
+        }
+
+    @Test
+    fun `reconcileStorage prunes completed rows whose files can't be played`() =
+        runTest {
+            val fileStore = DownloadFileStore(tempDir.root)
+            val present = fileStore.trackFile("book-1", 0, "mp3").apply { parentFile?.mkdirs() }
+            present.writeText("audio")
+            val empty = fileStore.trackFile("book-1", 1, "mp3").apply { writeBytes(ByteArray(0)) }
+            val dir = File(tempDir.root, "book-1/track_2.mp3").apply { mkdirs() }
+            dao.upsertAll(
+                listOf(
+                    testTrackDownloadEntity(trackIndex = 0, status = DownloadStatus.COMPLETED, localPath = present.absolutePath),
+                    testTrackDownloadEntity(trackIndex = 1, status = DownloadStatus.COMPLETED, localPath = empty.absolutePath),
+                    testTrackDownloadEntity(trackIndex = 2, status = DownloadStatus.COMPLETED, localPath = dir.absolutePath),
+                ),
+            )
+            repository.reconcileStorage()
+            assertEquals(listOf(0), dao.getForBook("book-1").map { it.trackIndex })
         }
 
     @Test

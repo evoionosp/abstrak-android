@@ -1,9 +1,6 @@
 package org.evoionosp.abstrak.data.audiobook.repository
 import org.evoionosp.abstrak.data.audiobook.local.entity.ContinueListeningEntity
 import org.evoionosp.abstrak.data.audiobook.local.entity.PendingProgressEntity
-import org.evoionosp.abstrak.data.audiobook.sync.toPlaybackProgress
-import org.evoionosp.abstrak.domain.audiobook.model.PlaybackProgress
-import org.evoionosp.abstrak.domain.audiobook.playback.ProgressMerge
 
 internal fun mergeQueuedProgress(
     shelf: List<ContinueListeningEntity>,
@@ -12,8 +9,10 @@ internal fun mergeQueuedProgress(
     val merged = shelf.associateByTo(LinkedHashMap()) { it.audiobookId }
     for (pending in queued) {
         val item = merged[pending.audiobookId]
-        val server = item?.currentTimeSeconds?.let { PlaybackProgress(it, durationSeconds = null, isFinished = false) }
-        if (!ProgressMerge.isDeviceAhead(pending.toPlaybackProgress(), server)) continue
+        // The most recently updated record wins, as in ProgressMerge (a tie keeps the server's).
+        // Compare whenever the shelf row has a time, even without a position: a book on the
+        // server's shelf has progress there, and a missing position only means fetching it failed.
+        if (item != null && pending.savedAtMillis <= item.progressLastUpdateMillis) continue
         if (pending.isFinished) {
             merged.remove(pending.audiobookId)
         } else {

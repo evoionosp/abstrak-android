@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.evoionosp.abstrak.data.audiobook.local.dao.AudiobookDetailDao
 import org.evoionosp.abstrak.data.download.file.DownloadFileStore
+import org.evoionosp.abstrak.data.download.file.isPlayableDownload
 import org.evoionosp.abstrak.data.download.local.dao.TrackDownloadDao
 import org.evoionosp.abstrak.data.download.local.entity.TrackDownloadEntity
 import org.evoionosp.abstrak.data.download.remote.DownloadError
@@ -195,7 +196,7 @@ class TrackBatchDownloader
 
         private fun isAlreadyComplete(row: TrackDownloadEntity?): Boolean {
             if (row?.status != DownloadStatus.COMPLETED.name) return false
-            return row.localPath?.let { File(it).exists() } ?: false
+            return isPlayableDownload(row.localPath)
         }
 
         private fun isStaleFile(

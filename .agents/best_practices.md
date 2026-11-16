@@ -49,7 +49,7 @@
 
 - Build playback around Media3, not UI-specific abstractions.
 - Build download orchestration as durable background work.
-- Never drop a server write that failed offline: queue it locally and deliver it from WorkManager (see `SavePlaybackProgressUseCase` and `SyncPendingProgressUseCase`). When the device and server disagree about where a book is, merge with `ProgressMerge` (furthest along wins) instead of overwriting either side.
+- Never drop a server write that failed offline: queue it locally and deliver it from WorkManager (see `SavePlaybackProgressUseCase` and `SyncPendingProgressUseCase`). When the device and server disagree about where a book is, merge with `ProgressMerge` (most recently updated wins by each record's own lastUpdate, which every save sends; a tie keeps the server's) instead of overwriting either side.
 - Persist playback position and queue state centrally.
 - Treat local/offline media as first-class data, not a later patch.
 

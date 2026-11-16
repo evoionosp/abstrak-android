@@ -40,26 +40,42 @@ class PendingProgressStoreImplTest {
     @Test
     fun `queues progress for a book`() =
         runTest(testDispatcher) {
-            store.put("lib-1", "book-1", at(60.0))
+            store.put("lib-1", "book-1", at(60.0, savedAt = 1_000L))
             val queued = store.get("book-1")!!
             assertEquals("lib-1", queued.libraryId)
-            assertEquals(at(60.0), queued.progress)
+            assertEquals(at(60.0, savedAt = 1_000L), queued.progress)
             assertEquals(listOf(queued), store.getAll())
+        }
+
+    @Test
+    fun `keeps the time the progress was saved, not the time it was queued`() =
+        runTest(testDispatcher) {
+            store.put("lib-1", "book-1", at(60.0, savedAt = 1_000L))
+            assertEquals(1_000L, store.get("book-1")!!.progress.lastUpdateMillis)
+        }
+
+    @Test
+    fun `dates progress that comes without a time`() =
+        runTest(testDispatcher) {
+            val before = System.currentTimeMillis()
+            store.put("lib-1", "book-1", at(60.0))
+            val savedAt = store.get("book-1")!!.progress.lastUpdateMillis
+            assertTrue(savedAt in before..System.currentTimeMillis())
         }
 
     @Test
     fun `a newer save replaces the book's queued progress`() =
         runTest(testDispatcher) {
-            store.put("lib-1", "book-1", at(60.0))
-            store.put("lib-1", "book-1", at(75.0))
-            assertEquals(listOf(at(75.0)), store.getAll().map { it.progress })
+            store.put("lib-1", "book-1", at(60.0, savedAt = 1_000L))
+            store.put("lib-1", "book-1", at(75.0, savedAt = 2_000L))
+            assertEquals(listOf(at(75.0, savedAt = 2_000L)), store.getAll().map { it.progress })
         }
 
     @Test
     fun `keeps books apart`() =
         runTest(testDispatcher) {
-            store.put("lib-1", "book-1", at(60.0))
-            store.put("lib-1", "book-2", at(30.0))
+            store.put("lib-1", "book-1", at(60.0, savedAt = 1_000L))
+            store.put("lib-1", "book-2", at(30.0, savedAt = 2_000L))
             assertEquals(setOf("book-1", "book-2"), store.getAll().map { it.audiobookId }.toSet())
             assertNull(store.get("book-3"))
         }
@@ -67,7 +83,7 @@ class PendingProgressStoreImplTest {
     @Test
     fun `removes the progress it read`() =
         runTest(testDispatcher) {
-            store.put("lib-1", "book-1", at(60.0))
+            store.put("lib-1", "book-1", at(60.0, savedAt = 1_000L))
             assertTrue(store.remove(store.get("book-1")!!))
             assertNull(store.get("book-1"))
         }
@@ -75,11 +91,11 @@ class PendingProgressStoreImplTest {
     @Test
     fun `keeps a save made after the progress was read`() =
         runTest(testDispatcher) {
-            store.put("lib-1", "book-1", at(60.0))
+            store.put("lib-1", "book-1", at(60.0, savedAt = 1_000L))
             val read = store.get("book-1")!!
-            store.put("lib-1", "book-1", at(75.0))
+            store.put("lib-1", "book-1", at(75.0, savedAt = 2_000L))
             assertFalse(store.remove(read))
-            assertEquals(at(75.0), store.get("book-1")!!.progress)
+            assertEquals(at(75.0, savedAt = 2_000L), store.get("book-1")!!.progress)
         }
 
     @Test
@@ -93,5 +109,8 @@ class PendingProgressStoreImplTest {
             assertTrue(failing.getAll().isEmpty())
         }
 
-    private fun at(seconds: Double) = PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false)
+    private fun at(
+        seconds: Double,
+        savedAt: Long = 0L,
+    ) = PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false, lastUpdateMillis = savedAt)
 }

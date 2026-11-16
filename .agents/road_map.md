@@ -13,7 +13,7 @@ The goal is not to add features as quickly as possible. The goal is to add them 
 - The app has a detail overlay (glance mode in the Now Playing surfaces) with Room-backed expanded detail, chapters, and ordered remote track caching. There is no detail destination in the nav graph.
 - The app syncs server-backed Continue Listening into Room for the home dashboard.
 - Milestone 2.5 established a playback-ready detail cache as the bridge from catalog browsing to playback.
-- Milestone 3 has started: real Media3 playback (ExoPlayer + MediaSession) in the `:playback` module, a background media session service, now-playing surfaces, progress sync/resume (offline saves queue in Room and sync through WorkManager, furthest along winning), chapter navigation, and speed control are implemented. A queue model/UI is still outstanding.
+- Milestone 3 has started: real Media3 playback (ExoPlayer + MediaSession) in the `:playback` module, a background media session service, now-playing surfaces, progress sync/resume (offline saves queue in Room and sync through WorkManager, most recently updated winning), chapter navigation, and speed control are implemented. A queue model/UI is still outstanding.
 - Foundation additions since: centralized token refresh (`SessionRefreshCoordinator` + OkHttp `Authenticator` + proactive rotation), and a single ordered logout flow (`LogoutUserUseCase`) that stops playback, clears the session, and wipes catalog/cover caches and downloads.
 - Continue Listening now carries per-book playback positions with time-left-at-1x subtitles.
 - Downloads have shipped: WorkManager downloads tracked per track in Room, a Downloads tab, and a Downloads & Storage settings page. Downloaded tracks play from the device, offline too.

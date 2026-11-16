@@ -431,6 +431,7 @@ class AudiobookRepositoryImpl
                             currentTimeSeconds = dto.currentTime ?: 0.0,
                             durationSeconds = dto.duration,
                             isFinished = dto.isFinished ?: false,
+                            lastUpdateMillis = dto.lastUpdate ?: 0L,
                         ),
                     )
                 } catch (exception: HttpException) {
@@ -509,6 +510,7 @@ class AudiobookRepositoryImpl
                                     duration = duration,
                                     progress = ratio,
                                     isFinished = progress.isFinished,
+                                    lastUpdate = progress.lastUpdateMillis.takeIf { it > 0L },
                                 ),
                         )
                     if (response.isSuccessful) {

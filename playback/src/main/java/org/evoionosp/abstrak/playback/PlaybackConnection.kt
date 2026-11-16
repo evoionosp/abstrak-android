@@ -16,6 +16,7 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import kotlin.math.abs
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -110,6 +111,13 @@ class PlaybackConnection
         private var localTracksJob: Job? = null
         private var lastTickBookSeconds: Double = 0.0
         private var lastTickAtMs: Long = 0L
+
+        /**
+         * When this device last set the loaded book's position: loading, listening, seeking or
+         * saving it. It is on the clock that stamps each save's lastUpdate, so pulled progress is
+         * compared with it the way ProgressMerge compares records.
+         */
+        private var positionUpdatedAtMs: Long = 0L
         private val finishedChapters = mutableSetOf<Int>()
         private var autoDeleteFinishedDownloads: Boolean = false
 
@@ -142,8 +150,14 @@ class PlaybackConnection
                     val controller = mediaController ?: return@collect
                     if (pulled.audiobookId != currentAudiobookId || currentTracks.isEmpty()) return@collect
                     if (_playbackState.value.isPreparing) return@collect
+                    // Newest wins, forwards or back. A book playing here is the newest listening
+                    // there is, and an echo of a save made here is no newer than that save.
+                    if (controller.isPlaying) return@collect
+                    if (pulled.progress.lastUpdateMillis <= positionUpdatedAtMs) return@collect
                     val target = pulled.progress.resumeSeconds ?: return@collect
-                    if (target <= currentAbsoluteSeconds(controller)) return@collect
+                    positionUpdatedAtMs = pulled.progress.lastUpdateMillis
+                    // Already there, as with an echo of a save made here: nothing to move or say.
+                    if (abs(target - currentAbsoluteSeconds(controller)) < SAME_POSITION_SECONDS) return@collect
                     val position = calculator.resolveSeekPosition(target, currentTracks)
                     controller.seekTo(position.trackIndex, position.offsetMs)
                     _playbackState.update { it.copy(currentBookPositionSeconds = target) }
@@ -229,6 +243,7 @@ class PlaybackConnection
                 calculator.totalDurationSeconds(audiobook, detail.tracks)
             lastTickBookSeconds = startSeconds
             lastTickAtMs = clock.nowMs()
+            positionUpdatedAtMs = lastTickAtMs
             finishedChapters.clear()
             secondsSinceServerSave = 0
             secondsPlayedSinceLoad = 0
@@ -364,6 +379,7 @@ class PlaybackConnection
             val audiobookId: String,
             val absoluteSeconds: Double,
             val totalSeconds: Double?,
+            val takenAtMs: Long,
         )
 
         private fun progressToSave(force: Boolean): ProgressSnapshot? {
@@ -373,11 +389,14 @@ class PlaybackConnection
             if (currentTracks.isEmpty()) return null
             if (controller.currentMediaItemIndex == C.INDEX_UNSET) return null
             if (!force && secondsPlayedSinceLoad < ProgressSyncPolicy.INTERVAL_SECONDS) return null
+            val takenAtMs = clock.nowMs()
+            markPositionUpdated(takenAtMs)
             return ProgressSnapshot(
                 libraryId = libraryId,
                 audiobookId = audiobookId,
                 absoluteSeconds = currentAbsoluteSeconds(controller),
                 totalSeconds = currentTotalDurationSeconds.takeIf { it > 0 },
+                takenAtMs = takenAtMs,
             )
         }
 
@@ -391,7 +410,13 @@ class PlaybackConnection
                 audiobookId = snapshot.audiobookId,
                 absoluteSeconds = snapshot.absoluteSeconds,
                 totalSeconds = snapshot.totalSeconds,
+                updatedAtMillis = snapshot.takenAtMs,
             )
+        }
+
+        /** Never moves backwards, so a record already applied or saved can't apply again. */
+        private fun markPositionUpdated(atMs: Long = clock.nowMs()) {
+            positionUpdatedAtMs = maxOf(positionUpdatedAtMs, atMs)
         }
 
         fun play() {
@@ -435,6 +460,7 @@ class PlaybackConnection
             currentChapters = emptyList()
             currentTracks = emptyList()
             currentTotalDurationSeconds = 0.0
+            positionUpdatedAtMs = 0L
             finishedChapters.clear()
             secondsSinceServerSave = 0
             secondsPlayedSinceLoad = 0
@@ -442,7 +468,9 @@ class PlaybackConnection
         }
 
         fun seekTo(positionMs: Long) {
-            mediaController?.seekTo(positionMs)
+            val controller = mediaController ?: return
+            controller.seekTo(positionMs)
+            markPositionUpdated()
         }
 
         fun seekToBookSeconds(absoluteSeconds: Double) {
@@ -453,6 +481,7 @@ class PlaybackConnection
             }
             val target = calculator.resolveSeekPosition(absoluteSeconds, currentTracks)
             controller.seekTo(target.trackIndex, target.offsetMs)
+            markPositionUpdated()
             saveCurrentProgressAsync()
         }
 
@@ -472,11 +501,13 @@ class PlaybackConnection
         fun seekForward(amountMs: Long = SEEK_FORWARD_MS) {
             val controller = mediaController ?: return
             controller.seekTo(controller.currentPosition + amountMs)
+            markPositionUpdated()
         }
 
         fun seekBackward(amountMs: Long = SEEK_BACKWARD_MS) {
             val controller = mediaController ?: return
             controller.seekTo((controller.currentPosition - amountMs).coerceAtLeast(0))
+            markPositionUpdated()
         }
 
         private fun startProgressUpdateLoop() {
@@ -527,6 +558,7 @@ class PlaybackConnection
                 }
             }
             if (controller.isPlaying && currentAudiobookId != null) {
+                markPositionUpdated(nowMs)
                 secondsPlayedSinceLoad++
                 secondsSinceServerSave++
                 if (secondsSinceServerSave >= ProgressSyncPolicy.INTERVAL_SECONDS) {
@@ -626,6 +658,7 @@ class PlaybackConnection
             private const val TAG = "PlaybackConnection"
             const val SEEK_FORWARD_MS = 30_000L
             const val SEEK_BACKWARD_MS = 15_000L
+            private const val SAME_POSITION_SECONDS = 1.0
             private val IO_ERROR_CODES = PlaybackException.ERROR_CODE_IO_UNSPECIFIED until 3000
         }
     }

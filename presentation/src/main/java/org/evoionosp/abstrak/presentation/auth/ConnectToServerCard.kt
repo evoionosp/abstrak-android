@@ -62,6 +62,13 @@ fun ConnectToServerCard(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.server_url_label)) },
             placeholder = { Text(stringResource(R.string.server_url_placeholder)) },
+            isError = state.showInvalidBaseUrl,
+            supportingText =
+                if (state.showInvalidBaseUrl) {
+                    { Text(stringResource(R.string.error_invalid_base_url)) }
+                } else {
+                    null
+                },
             shape = AbstrakShapes.field,
             keyboardOptions =
                 KeyboardOptions(
@@ -70,7 +77,7 @@ fun ConnectToServerCard(
                 ),
             keyboardActions =
                 KeyboardActions(
-                    onDone = { if (!state.isChecking) submit() },
+                    onDone = { if (state.isConnectEnabled) submit() },
                 ),
         )
         LoadingButton(
@@ -78,7 +85,7 @@ fun ConnectToServerCard(
             loadingText = stringResource(R.string.checking_server),
             isLoading = state.isChecking,
             onClick = submit,
-            enabled = !state.isChecking,
+            enabled = state.isConnectEnabled,
             modifier = Modifier.fillMaxWidth(),
         )
     }
