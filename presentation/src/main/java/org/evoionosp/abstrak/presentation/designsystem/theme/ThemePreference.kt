@@ -8,7 +8,6 @@ enum class ThemePreference {
 
     companion object {
         /** Parses a stored preference name, falling back to following the system. */
-        fun fromName(name: String): ThemePreference =
-            entries.firstOrNull { it.name == name } ?: SYSTEM
+        fun fromName(name: String): ThemePreference = entries.firstOrNull { it.name == name } ?: SYSTEM
     }
 }

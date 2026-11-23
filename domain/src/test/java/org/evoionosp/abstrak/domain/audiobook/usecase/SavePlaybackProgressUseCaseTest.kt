@@ -167,7 +167,13 @@ class SavePlaybackProgressUseCaseTest {
             repository.fetchProgressResult = DomainResult.Failure(CatalogError.CONNECTIVITY_UNAVAILABLE)
             val result = save(absoluteSeconds = 320.0, totalSeconds = TOTAL)
             assertEquals(DomainResult.Failure(CatalogError.NETWORK), result)
-            assertEquals(320.0, store.queued.single().progress.currentTimeSeconds, 0.001)
+            assertEquals(
+                320.0,
+                store.queued
+                    .single()
+                    .progress.currentTimeSeconds,
+                0.001,
+            )
             assertEquals(1, scheduler.scheduleCount)
         }
 

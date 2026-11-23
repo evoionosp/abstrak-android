@@ -19,9 +19,13 @@ class FetchPlaybackProgressUseCase
         ): PlaybackProgress? {
             val queued = pendingProgressStore.get(audiobookId)
             return when (val result = audiobookRepository.fetchProgress(baseUrl, accessToken, audiobookId)) {
-                is DomainResult.Success ->
+                is DomainResult.Success -> {
                     ProgressMerge.newest(queued?.progress, result.data)
-                is DomainResult.Failure -> queued?.progress
+                }
+
+                is DomainResult.Failure -> {
+                    queued?.progress
+                }
             }
         }
     }

@@ -80,8 +80,13 @@ class HttpServerUrlValidatorTest {
     fun `accepts what Retrofit takes as a base url, less the refused parts`() {
         for (address in SAMPLES) {
             val parsed =
-                runCatching { Retrofit.Builder().baseUrl(UrlUtils.normalizeBaseUrl(address)).build().baseUrl() }
-                    .getOrNull()
+                runCatching {
+                    Retrofit
+                        .Builder()
+                        .baseUrl(UrlUtils.normalizeBaseUrl(address))
+                        .build()
+                        .baseUrl()
+                }.getOrNull()
             val expected =
                 parsed != null &&
                     parsed.username.isEmpty() &&

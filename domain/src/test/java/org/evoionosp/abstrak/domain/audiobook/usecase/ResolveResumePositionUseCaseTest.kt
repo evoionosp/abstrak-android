@@ -106,6 +106,8 @@ class ResolveResumePositionUseCaseTest {
     private suspend fun resume(hint: Double? = null): Double =
         useCase("https://example.com", "token", testAudiobook().copy(progressSeconds = hint))
 
-    private fun at(seconds: Double, lastUpdateMillis: Long = 0L) =
-        PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false, lastUpdateMillis = lastUpdateMillis)
+    private fun at(
+        seconds: Double,
+        lastUpdateMillis: Long = 0L,
+    ) = PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false, lastUpdateMillis = lastUpdateMillis)
 }
