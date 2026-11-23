@@ -103,10 +103,28 @@
     <string name="unknown_duration">Unknown duration</string>
     <string name="home_greeting">Hi there</string>
     <string name="home_greeting_named">Hi, %1$s</string>
-    <string name="home_syncing">Syncing with server…</string>
-    <string name="home_synced">Up to date</string>
-    <string name="home_showing_cached">Showing cached books</string>
-    <string name="home_sync_failed">Sync failed</string>
+    <string name="library_sync_syncing">Syncing library…</string>
+    <string name="library_sync_never">Not synced yet</string>
+    <string name="library_sync_just_now">Synced just now</string>
+    <plurals name="library_sync_minutes_ago">
+        <item quantity="one">Synced %d minute ago</item>
+        <item quantity="other">Synced %d minutes ago</item>
+    </plurals>
+    <plurals name="library_sync_hours_ago">
+        <item quantity="one">Synced %d hour ago</item>
+        <item quantity="other">Synced %d hours ago</item>
+    </plurals>
+    <plurals name="library_sync_days_ago">
+        <item quantity="one">Synced %d day ago</item>
+        <item quantity="other">Synced %d days ago</item>
+    </plurals>
+    <string name="library_sync_offline_label">Offline · %1$s</string>
+    <string name="library_sync_sheet_title">Library sync</string>
+    <string name="library_sync_last_synced">Last synced %1$s</string>
+    <string name="library_sync_schedule">Your library syncs on its own once a day. Pull down on the library to sync it now.</string>
+    <string name="library_sync_offline_mode">Use app offline</string>
+    <string name="library_sync_offline_mode_desc">Use only what\'s on this device, even when you\'re connected. Syncing, streaming and downloads wait until you turn this off.</string>
+    <string name="library_sync_offline_mode_on">Offline mode is on. Turn it off to sync your library.</string>
     <string name="home_no_libraries">No audiobook libraries found.</string>
     <string name="home_no_libraries_hint">Add or enable an audiobook library on your Audiobookshelf server.</string>
     <string name="home_no_books">No audiobooks yet.</string>

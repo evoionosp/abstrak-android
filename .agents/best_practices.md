@@ -35,6 +35,7 @@
 - Use stale-while-revalidate behavior where it fits the product: show cached data quickly, then refresh in background.
 - Keep sync metadata explicit: last synced, stale state, failure reason, retry policy.
 - Separate catalog sync from media download sync.
+- Gate automatic catalog syncs on `LibrarySyncPolicy` through `SyncLibraryBooksUseCase` (due once a day, one sync at a time); only an explicit user refresh forces one. Check connectivity through `ConnectivityObserver`, never the device network directly, so offline mode applies.
 - Main-safe suspend functions are required in data and domain APIs.
 - Prefer `Flow` for observable data changes and `suspend` functions for one-shot operations.
 

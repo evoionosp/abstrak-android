@@ -8,6 +8,7 @@ import javax.inject.Inject
 import javax.inject.Named
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -17,6 +18,7 @@ import okhttp3.Call
 import org.evoionosp.abstrak.catalog.CatalogSyncCoordinator
 import org.evoionosp.abstrak.data.network.ManagedOkHttpClients
 import org.evoionosp.abstrak.domain.audiobook.usecase.SchedulePendingProgressSyncUseCase
+import org.evoionosp.abstrak.domain.connectivity.usecase.FollowOfflineModeUseCase
 import org.evoionosp.abstrak.domain.download.repository.DownloadRepository
 import org.evoionosp.abstrak.domain.settings.AppSettingsStore
 import org.evoionosp.abstrak.presentation.designsystem.theme.ThemePreference
@@ -43,6 +45,9 @@ class AbstrakApplication :
     lateinit var appSettingsStore: AppSettingsStore
 
     @Inject
+    lateinit var followOfflineMode: FollowOfflineModeUseCase
+
+    @Inject
     @Named("application_scope")
     lateinit var applicationScope: CoroutineScope
 
@@ -55,6 +60,9 @@ class AbstrakApplication :
         }
         applicationScope.launch {
             schedulePendingProgressSync()
+        }
+        applicationScope.launch {
+            followOfflineMode().collect()
         }
     }
 

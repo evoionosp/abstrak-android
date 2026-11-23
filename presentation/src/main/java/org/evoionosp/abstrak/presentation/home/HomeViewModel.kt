@@ -20,8 +20,6 @@ import kotlinx.coroutines.launch
 import org.evoionosp.abstrak.domain.audiobook.usecase.ObserveContinueListeningUseCase
 import org.evoionosp.abstrak.domain.audiobook.usecase.ObserveHomeAudiobooksUseCase
 import org.evoionosp.abstrak.domain.audiobook.usecase.ObserveLibrarySyncStatusUseCase
-import org.evoionosp.abstrak.domain.audiobook.usecase.RefreshContinueListeningUseCase
-import org.evoionosp.abstrak.domain.audiobook.usecase.RefreshSelectedLibraryAudiobooksUseCase
 import org.evoionosp.abstrak.domain.catalog.usecase.RefreshHomeCatalogResult
 import org.evoionosp.abstrak.domain.catalog.usecase.RefreshHomeCatalogUseCase
 import org.evoionosp.abstrak.domain.library.model.CatalogError
@@ -29,10 +27,9 @@ import org.evoionosp.abstrak.domain.library.model.DomainResult
 import org.evoionosp.abstrak.domain.library.usecase.ObserveLibrariesUseCase
 import org.evoionosp.abstrak.domain.library.usecase.ObserveSelectedLibraryUseCase
 import org.evoionosp.abstrak.domain.library.usecase.SelectLibraryUseCase
-import org.evoionosp.abstrak.domain.session.LoginSession
-import org.evoionosp.abstrak.domain.session.usecase.GetValidSessionUseCase
 import org.evoionosp.abstrak.domain.session.usecase.LogoutUserUseCase
 import org.evoionosp.abstrak.domain.session.usecase.ObserveSessionUseCase
+import org.evoionosp.abstrak.domain.settings.AppSettingsStore
 import org.evoionosp.abstrak.playback.PlaybackConnection
 import org.evoionosp.abstrak.presentation.R
 import org.evoionosp.abstrak.presentation.ui.message.SnackbarController
@@ -47,16 +44,14 @@ class HomeViewModel
     constructor(
         private val observeSessionUseCase: ObserveSessionUseCase,
         private val logoutUserUseCase: LogoutUserUseCase,
-        private val getValidSessionUseCase: GetValidSessionUseCase,
         private val observeLibrariesUseCase: ObserveLibrariesUseCase,
         private val observeSelectedLibraryUseCase: ObserveSelectedLibraryUseCase,
         private val observeHomeAudiobooksUseCase: ObserveHomeAudiobooksUseCase,
         private val observeContinueListeningUseCase: ObserveContinueListeningUseCase,
         private val observeLibrarySyncStatusUseCase: ObserveLibrarySyncStatusUseCase,
         private val refreshHomeCatalogUseCase: RefreshHomeCatalogUseCase,
-        private val refreshContinueListeningUseCase: RefreshContinueListeningUseCase,
-        private val refreshSelectedLibraryAudiobooksUseCase: RefreshSelectedLibraryAudiobooksUseCase,
         private val selectLibraryUseCase: SelectLibraryUseCase,
+        private val appSettingsStore: AppSettingsStore,
         private val playbackConnection: PlaybackConnection,
         private val snackbar: SnackbarController,
     ) : ViewModel() {
@@ -171,6 +166,12 @@ class HomeViewModel
                         _uiState.update { it.copy(syncStatus = syncStatus) }
                     }
             }
+            viewModelScope.launch {
+                appSettingsStore.settings
+                    .map { it.useOfflineMode }
+                    .distinctUntilChanged()
+                    .collect { isOfflineMode -> _uiState.update { it.copy(isOfflineMode = isOfflineMode) } }
+            }
         }
 
         fun playAudiobook(audiobook: AudiobookUiModel) {
@@ -183,27 +184,13 @@ class HomeViewModel
             }
         }
 
+        /** Switches library; its books sync if the daily library sync is due for it. */
         fun onLibrarySelected(libraryId: String) {
             if (_uiState.value.selectedLibraryId == libraryId) return
             viewModelScope.launch {
                 when (selectLibraryUseCase(libraryId)) {
                     is DomainResult.Success -> {
-                        val session =
-                            getValidSessionUseCase() ?: run {
-                                expireSession()
-                                return@launch
-                            }
-                        val refreshResult =
-                            refreshSelectedLibraryAudiobooks(
-                                session = session,
-                                libraryId = libraryId,
-                            )
-                        val continueResult =
-                            refreshContinueListening(
-                                session = session,
-                                libraryId = libraryId,
-                            )
-                        if (refreshResult.isAuthFailure() || continueResult.isAuthFailure()) {
+                        if (refreshHomeCatalogUseCase(force = false) is RefreshHomeCatalogResult.SessionExpired) {
                             expireSession()
                         }
                     }
@@ -215,12 +202,24 @@ class HomeViewModel
             }
         }
 
+        /** Pull to refresh: syncs the library now, whenever it last synced. */
         fun refresh() {
+            if (_uiState.value.isOfflineMode) {
+                snackbar.warning(R.string.library_sync_offline_mode_on)
+                return
+            }
             performRefresh(silent = false)
         }
 
+        /** Back in the app: syncs the library only if the daily sync is due. */
         fun refreshSilently() {
             performRefresh(silent = true)
+        }
+
+        fun setOfflineMode(enabled: Boolean) {
+            viewModelScope.launch {
+                appSettingsStore.setOfflineMode(enabled)
+            }
         }
 
         private fun performRefresh(silent: Boolean) {
@@ -228,7 +227,7 @@ class HomeViewModel
                 if (!silent) {
                     _uiState.update { it.copy(isRefreshing = true) }
                 }
-                when (val result = refreshHomeCatalogUseCase()) {
+                when (val result = refreshHomeCatalogUseCase(force = !silent)) {
                     is RefreshHomeCatalogResult.Success -> {
                     }
 
@@ -275,29 +274,6 @@ class HomeViewModel
                 logoutUserUseCase()
             }
         }
-
-        private suspend fun refreshSelectedLibraryAudiobooks(
-            session: LoginSession,
-            libraryId: String,
-        ): DomainResult<Unit> =
-            refreshSelectedLibraryAudiobooksUseCase(
-                baseUrl = session.baseUrl,
-                accessToken = session.accessToken,
-                libraryId = libraryId,
-            )
-
-        private suspend fun refreshContinueListening(
-            session: LoginSession,
-            libraryId: String,
-        ): DomainResult<Unit> =
-            refreshContinueListeningUseCase(
-                baseUrl = session.baseUrl,
-                accessToken = session.accessToken,
-                libraryId = libraryId,
-            )
-
-        private fun DomainResult<Unit>.isAuthFailure(): Boolean =
-            this is DomainResult.Failure && error == CatalogError.AUTH
 
         private fun toMessageRes(error: CatalogError): Int =
             when (error) {

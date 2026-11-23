@@ -18,10 +18,12 @@ object OkHttpProvider {
         connectionSettingsStore: ConnectionSettingsStore,
         context: Context,
         settings: ConnectionSettings,
+        isOfflineMode: () -> Boolean,
     ): OkHttpClient {
         val builder =
             OkHttpClient
                 .Builder()
+                .addInterceptor(OfflineModeInterceptor(isOfflineMode))
                 .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)

@@ -4,7 +4,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -12,9 +11,10 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
+import org.evoionosp.abstrak.domain.library.model.SyncStatus
 import org.evoionosp.abstrak.presentation.R
 import org.evoionosp.abstrak.presentation.home.HomeUiState
 import org.evoionosp.abstrak.presentation.ui.image.LocalAccessToken
@@ -95,15 +95,36 @@ class LibraryScreenTest {
     }
 
     @Test
-    fun `the sync status sits centered between the header and the books`() {
-        showLibrary(HomeUiState(audiobooks = listOf(book("dune", "Dune", "Frank Herbert"))).withLibrary())
-        val status = composeRule.activity.getString(R.string.home_synced)
-        val statusBounds = composeRule.onNodeWithText(status).getUnclippedBoundsInRoot()
-        assertTrue(statusBounds.top >= settingsButtonBounds().bottom)
+    fun `the sync chip sits centered between the header and the books`() {
+        showLibrary(syncedHoursAgo(3))
+        val chip = composeRule.onNodeWithText(plural(R.plurals.library_sync_hours_ago, 3)).getUnclippedBoundsInRoot()
+        assertTrue(chip.top >= settingsButtonBounds().bottom)
         val booksHeader = composeRule.activity.getString(R.string.library_audiobooks)
-        assertTrue(statusBounds.bottom <= composeRule.onNodeWithText(booksHeader).getUnclippedBoundsInRoot().top)
-        val line = textLayoutResult(status)
-        assertEquals(line.getLineLeft(0), line.size.width - line.getLineRight(0), 1f)
+        assertTrue(chip.bottom <= composeRule.onNodeWithText(booksHeader).getUnclippedBoundsInRoot().top)
+        val root = composeRule.onRoot().getUnclippedBoundsInRoot()
+        assertEquals(((root.left + root.right) / 2).value, ((chip.left + chip.right) / 2).value, 1f)
+    }
+
+    @Test
+    fun `in offline mode the chip says so`() {
+        showLibrary(syncedHoursAgo(3).copy(isOfflineMode = true))
+        val status = plural(R.plurals.library_sync_hours_ago, 3)
+        composeRule
+            .onNodeWithText(composeRule.activity.getString(R.string.library_sync_offline_label, status))
+            .assertExists()
+    }
+
+    @Test
+    fun `tapping the sync chip opens the sync sheet, whose switch turns offline mode on`() {
+        val offlineModeChanges = mutableListOf<Boolean>()
+        showLibrary(syncedHoursAgo(3), onOfflineModeChange = { offlineModeChanges += it })
+        val offlineMode = composeRule.activity.getString(R.string.library_sync_offline_mode)
+        composeRule.onNodeWithText(offlineMode).assertDoesNotExist()
+        composeRule.onNodeWithText(plural(R.plurals.library_sync_hours_ago, 3)).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.library_sync_sheet_title)).assertExists()
+        composeRule.onNodeWithText(offlineMode).performClick()
+        assertEquals(listOf(true), offlineModeChanges)
     }
 
     @Test
@@ -141,17 +162,6 @@ class LibraryScreenTest {
             .onNodeWithContentDescription(composeRule.activity.getString(R.string.settings_icon_desc))
             .getUnclippedBoundsInRoot()
 
-    private fun textLayoutResult(text: String): TextLayoutResult {
-        val results = mutableListOf<TextLayoutResult>()
-        composeRule
-            .onNodeWithText(text)
-            .fetchSemanticsNode()
-            .config[SemanticsActions.GetTextLayoutResult]
-            .action
-            ?.invoke(results)
-        return results.first()
-    }
-
     private fun boundsOf(text: String) = composeRule.onNodeWithText(text).getUnclippedBoundsInRoot()
 
     private fun plural(
@@ -159,9 +169,16 @@ class LibraryScreenTest {
         count: Int,
     ): String = composeRule.activity.resources.getQuantityString(id, count, count)
 
+    private fun syncedHoursAgo(hours: Int): HomeUiState =
+        HomeUiState(
+            audiobooks = listOf(book("dune", "Dune", "Frank Herbert")),
+            syncStatus = SyncStatus.Success(lastSyncedAtMillis = NOW - hours * HOUR_MILLIS),
+        ).withLibrary()
+
     private fun showLibrary(
         state: HomeUiState,
         onOpenAudiobook: (AudiobookUiModel) -> Unit = {},
+        onOfflineModeChange: (Boolean) -> Unit = {},
     ) {
         composeRule.setContent {
             CompositionLocalProvider(LocalAccessToken provides "test-token") {
@@ -169,9 +186,11 @@ class LibraryScreenTest {
                     state = state,
                     isGridView = isGridView,
                     bottomBarPadding = 0.dp,
+                    nowMillis = NOW,
                     onRefresh = {},
                     onLibrarySelected = {},
                     onToggleLayout = {},
+                    onOfflineModeChange = onOfflineModeChange,
                     onOpenSettings = {},
                     onOpenAudiobook = onOpenAudiobook,
                 )
@@ -205,4 +224,9 @@ class LibraryScreenTest {
         timeLeftLabel = null,
         hasAudio = hasAudio,
     )
+
+    private companion object {
+        const val NOW = 1_700_000_000_000L
+        const val HOUR_MILLIS = 60 * 60 * 1000L
+    }
 }

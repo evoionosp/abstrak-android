@@ -121,6 +121,33 @@ class DownloadRepositoryImplTest {
         }
 
     @Test
+    fun `pauseDownloads cancels every batch and leaves the tracks queued`() =
+        runTest {
+            dao.upsert(testTrackDownloadEntity(trackIndex = 0, status = DownloadStatus.QUEUED))
+            repository.pauseDownloads()
+            assertEquals(1, scheduler.cancelAllCount)
+            assertEquals(listOf("QUEUED"), dao.getForBook("book-1").map { it.status })
+        }
+
+    @Test
+    fun `resumeDownloads reschedules each book's queued and interrupted tracks only`() =
+        runTest {
+            dao.upsert(testTrackDownloadEntity(trackIndex = 0, status = DownloadStatus.QUEUED))
+            dao.upsert(testTrackDownloadEntity(trackIndex = 1, status = DownloadStatus.DOWNLOADING))
+            dao.upsert(testTrackDownloadEntity(trackIndex = 2, status = DownloadStatus.COMPLETED))
+            dao.upsert(testTrackDownloadEntity(audiobookId = "book-2", status = DownloadStatus.FAILED))
+            dao.upsert(testTrackDownloadEntity(audiobookId = "book-3", status = DownloadStatus.QUEUED, wifiOnly = true))
+            repository.resumeDownloads()
+            assertEquals(
+                listOf(
+                    FakeDownloadWorkScheduler.Scheduled("book-1", listOf(0, 1), false),
+                    FakeDownloadWorkScheduler.Scheduled("book-3", listOf(0), true),
+                ),
+                scheduler.scheduled.sortedBy { it.audiobookId },
+            )
+        }
+
+    @Test
     fun `enqueueTracks ignores empty input`() =
         runTest {
             repository.enqueueTracks("book-1", emptyList(), wifiOnly = false)

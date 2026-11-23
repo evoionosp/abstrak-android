@@ -27,6 +27,7 @@ class AppSettingsDataStoreTest {
             store.setSearchAllLibraries(true)
             store.setDownloadWifiOnly(false)
             store.setAutoDeleteFinishedDownloads(false)
+            store.setOfflineMode(false)
         }
 
     @Test
@@ -98,6 +99,18 @@ class AppSettingsDataStoreTest {
                 assertEquals(false, awaitItem().downloadWifiOnly)
                 store.setAutoDeleteFinishedDownloads(false)
                 assertEquals(false, awaitItem().autoDeleteFinishedDownloads)
+            }
+        }
+
+    @Test
+    fun `offline mode defaults off and the choice round-trips`() =
+        runTest {
+            store.settings.test {
+                assertEquals(false, awaitItem().useOfflineMode)
+                store.setOfflineMode(true)
+                assertEquals(true, awaitItem().useOfflineMode)
+                store.setOfflineMode(false)
+                assertEquals(false, awaitItem().useOfflineMode)
             }
         }
 

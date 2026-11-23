@@ -229,6 +229,75 @@ class BootstrapHomeCatalogUseCaseTest {
         }
 }
 
+class BootstrapHomeCatalogFromCacheTest {
+    @Test
+    fun `a library that synced before opens from the device without the server`() =
+        runTest {
+            val libraries =
+                MutableStateFlow(
+                    listOf(
+                        AudiobookLibrary(id = "lib-1", name = "Main", isSelected = true),
+                        AudiobookLibrary(id = "lib-2", name = "Alt", isSelected = false),
+                    ),
+                )
+            val libraryRepository =
+                FakeLibraryRepository(
+                    libraries = libraries,
+                    selectedLibrary = MutableStateFlow(libraries.value.first()),
+                    refreshResult = DomainResult.Success(Unit),
+                )
+            val audiobookRepository =
+                FakeAudiobookRepository(
+                    audiobooksByLibraryId = mutableMapOf(),
+                    refreshResult = DomainResult.Success(Unit),
+                )
+            audiobookRepository.syncStatusByLibrary["lib-1"] = SyncStatus.Success(lastSyncedAtMillis = 1_000L)
+            val result =
+                BootstrapHomeCatalogUseCase(libraryRepository, audiobookRepository)(
+                    baseUrl = "https://example.com",
+                    accessToken = "token",
+                )
+            assertEquals(BootstrapHomeCatalogResult.Success(selectedLibraryId = "lib-1", usedCachedData = true), result)
+            assertEquals(0, libraryRepository.refreshCount)
+            assertEquals(emptyList<String>(), audiobookRepository.refreshedLibraries)
+            assertEquals(emptyList<String>(), audiobookRepository.refreshedContinueListeningLibraries)
+        }
+
+    @Test
+    fun `with no library selected the first one opens from the device, selected`() =
+        runTest {
+            val libraries =
+                MutableStateFlow(
+                    listOf(
+                        AudiobookLibrary(id = "lib-1", name = "Main", isSelected = false),
+                        AudiobookLibrary(id = "lib-2", name = "Alt", isSelected = false),
+                    ),
+                )
+            val selected = MutableStateFlow<AudiobookLibrary?>(null)
+            val libraryRepository =
+                FakeLibraryRepository(
+                    libraries = libraries,
+                    selectedLibrary = selected,
+                    refreshResult = DomainResult.Success(Unit),
+                )
+            val audiobookRepository =
+                FakeAudiobookRepository(
+                    audiobooksByLibraryId = mutableMapOf(),
+                    refreshResult = DomainResult.Success(Unit),
+                )
+            audiobookRepository.syncStatusByLibrary["lib-1"] =
+                SyncStatus.Stale(lastSyncedAtMillis = 1_000L, reason = CatalogError.NETWORK)
+            val result =
+                BootstrapHomeCatalogUseCase(libraryRepository, audiobookRepository)(
+                    baseUrl = "https://example.com",
+                    accessToken = "token",
+                )
+            assertEquals(BootstrapHomeCatalogResult.Success(selectedLibraryId = "lib-1", usedCachedData = true), result)
+            assertEquals("lib-1", selected.value?.id)
+            assertEquals(0, libraryRepository.refreshCount)
+        }
+}
+
 private class FakeLibraryRepository(
     val libraries: MutableStateFlow<List<AudiobookLibrary>>,
     val selectedLibrary: MutableStateFlow<AudiobookLibrary?>,
@@ -238,10 +307,16 @@ private class FakeLibraryRepository(
 
     override fun observeSelectedLibrary(): Flow<AudiobookLibrary?> = selectedLibrary
 
+    var refreshCount = 0
+        private set
+
     override suspend fun refreshLibraries(
         baseUrl: String,
         accessToken: String,
-    ): DomainResult<Unit> = refreshResult
+    ): DomainResult<Unit> {
+        refreshCount++
+        return refreshResult
+    }
 
     override suspend fun selectLibrary(libraryId: String): DomainResult<Unit> {
         val library =
@@ -263,6 +338,7 @@ private class FakeAudiobookRepository(
 ) : AudiobookRepository {
     val refreshedLibraries = mutableListOf<String>()
     val refreshedContinueListeningLibraries = mutableListOf<String>()
+    val syncStatusByLibrary = mutableMapOf<String, SyncStatus>()
 
     override fun observeAudiobooks(libraryId: String): Flow<List<Audiobook>> =
         audiobooksByLibraryId.getOrPut(libraryId) {
@@ -290,7 +366,8 @@ private class FakeAudiobookRepository(
         audiobookId: String,
     ): DomainResult<Unit> = DomainResult.Success(Unit)
 
-    override fun observeLibrarySyncStatus(libraryId: String): Flow<SyncStatus> = MutableStateFlow(SyncStatus.Idle)
+    override fun observeLibrarySyncStatus(libraryId: String): Flow<SyncStatus> =
+        MutableStateFlow(syncStatusByLibrary[libraryId] ?: SyncStatus.Idle)
 
     override suspend fun refreshAudiobooks(
         baseUrl: String,

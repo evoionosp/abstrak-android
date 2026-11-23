@@ -26,6 +26,10 @@ class WorkManagerProgressSyncScheduler
             workManager.enqueueUniqueWork(UNIQUE_NAME, ExistingWorkPolicy.KEEP, syncRequest())
         }
 
+        override fun scheduleNow() {
+            workManager.enqueueUniqueWork(UNIQUE_NAME, ExistingWorkPolicy.REPLACE, syncRequest())
+        }
+
         companion object {
             internal const val UNIQUE_NAME = "progress-sync"
 

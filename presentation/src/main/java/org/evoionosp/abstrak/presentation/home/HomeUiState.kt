@@ -16,6 +16,7 @@ data class HomeUiState(
     val authorCount: Int = 0,
     val durationHours: Double = 0.0,
     val syncStatus: SyncStatus = SyncStatus.Idle,
+    val isOfflineMode: Boolean = false,
     val isRefreshing: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,

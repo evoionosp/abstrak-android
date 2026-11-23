@@ -1,5 +1,6 @@
 package org.evoionosp.abstrak.presentation.home
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -19,10 +20,14 @@ import org.evoionosp.abstrak.domain.catalog.usecase.RefreshHomeCatalogResult
 import org.evoionosp.abstrak.domain.catalog.usecase.RefreshHomeCatalogUseCase
 import org.evoionosp.abstrak.domain.library.model.AudiobookLibrary
 import org.evoionosp.abstrak.domain.library.model.CatalogError
+import org.evoionosp.abstrak.domain.library.model.DomainResult
 import org.evoionosp.abstrak.domain.library.model.SyncStatus
 import org.evoionosp.abstrak.domain.library.usecase.ObserveLibrariesUseCase
 import org.evoionosp.abstrak.domain.library.usecase.ObserveSelectedLibraryUseCase
+import org.evoionosp.abstrak.domain.library.usecase.SelectLibraryUseCase
 import org.evoionosp.abstrak.domain.session.usecase.ObserveSessionUseCase
+import org.evoionosp.abstrak.domain.settings.AppSettings
+import org.evoionosp.abstrak.domain.testing.FakeAppSettingsStore
 import org.evoionosp.abstrak.playback.PlaybackConnection
 import org.evoionosp.abstrak.playback.PlaybackState
 import org.evoionosp.abstrak.presentation.R
@@ -32,6 +37,8 @@ import org.evoionosp.abstrak.presentation.ui.message.SnackbarMessage
 import org.evoionosp.abstrak.presentation.ui.message.UiText
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -88,9 +95,73 @@ class HomeViewModelTest {
             )
         }
 
+    @Test
+    fun `pull to refresh forces a library sync`() =
+        runTest {
+            val refresh = succeeding()
+            homeViewModel(books = emptyList(), refresh = refresh).refresh()
+            coVerify(exactly = 1) { refresh(force = true) }
+        }
+
+    @Test
+    fun `coming back to the app syncs the library only when it is due`() =
+        runTest {
+            val refresh = succeeding()
+            homeViewModel(books = emptyList(), refresh = refresh).refreshSilently()
+            coVerify(exactly = 1) { refresh(force = false) }
+        }
+
+    @Test
+    fun `switching library syncs it only when it is due`() =
+        runTest {
+            val refresh = succeeding()
+            val selectLibrary = mockk<SelectLibraryUseCase>()
+            coEvery { selectLibrary("lib-2") } returns DomainResult.Success(Unit)
+            val viewModel = homeViewModel(books = emptyList(), refresh = refresh, selectLibrary = selectLibrary)
+            viewModel.onLibrarySelected("lib-2")
+            coVerify(exactly = 1) { refresh(force = false) }
+        }
+
+    @Test
+    fun `pull to refresh in offline mode explains why it cannot sync instead of trying`() =
+        runTest {
+            val snackbar = SnackbarController()
+            val refresh = succeeding()
+            val viewModel =
+                homeViewModel(
+                    books = emptyList(),
+                    snackbar = snackbar,
+                    refresh = refresh,
+                    settings = FakeAppSettingsStore(AppSettings(useOfflineMode = true)),
+                )
+            viewModel.refresh()
+            assertEquals(
+                SnackbarMessage(UiText.Resource(R.string.library_sync_offline_mode_on), SnackbarType.WARNING),
+                snackbar.messages.first(),
+            )
+            assertFalse(viewModel.uiState.value.isRefreshing)
+            coVerify(exactly = 0) { refresh(any()) }
+        }
+
+    @Test
+    fun `the offline mode switch is saved and shows in the state`() {
+        val settings = FakeAppSettingsStore()
+        val viewModel = homeViewModel(books = emptyList(), settings = settings)
+        assertFalse(viewModel.uiState.value.isOfflineMode)
+        viewModel.setOfflineMode(true)
+        assertTrue(settings.state.value.useOfflineMode)
+        assertTrue(viewModel.uiState.value.isOfflineMode)
+    }
+
     private fun failure(error: CatalogError): RefreshHomeCatalogUseCase {
         val refresh = mockk<RefreshHomeCatalogUseCase>()
-        coEvery { refresh() } returns RefreshHomeCatalogResult.Failure(error)
+        coEvery { refresh(any()) } returns RefreshHomeCatalogResult.Failure(error)
+        return refresh
+    }
+
+    private fun succeeding(): RefreshHomeCatalogUseCase {
+        val refresh = mockk<RefreshHomeCatalogUseCase>()
+        coEvery { refresh(any()) } returns RefreshHomeCatalogResult.Success
         return refresh
     }
 
@@ -98,6 +169,8 @@ class HomeViewModelTest {
         books: List<Audiobook>,
         snackbar: SnackbarController = SnackbarController(),
         refresh: RefreshHomeCatalogUseCase = mockk(),
+        selectLibrary: SelectLibraryUseCase = mockk(),
+        settings: FakeAppSettingsStore = FakeAppSettingsStore(),
     ): HomeViewModel {
         val library = AudiobookLibrary(id = "lib-1", name = "Shelf", isSelected = true)
         val observeSession = mockk<ObserveSessionUseCase>()
@@ -117,16 +190,14 @@ class HomeViewModelTest {
         return HomeViewModel(
             observeSessionUseCase = observeSession,
             logoutUserUseCase = mockk(relaxed = true),
-            getValidSessionUseCase = mockk(),
             observeLibrariesUseCase = observeLibraries,
             observeSelectedLibraryUseCase = observeSelectedLibrary,
             observeHomeAudiobooksUseCase = observeHomeAudiobooks,
             observeContinueListeningUseCase = observeContinueListening,
             observeLibrarySyncStatusUseCase = observeSyncStatus,
             refreshHomeCatalogUseCase = refresh,
-            refreshContinueListeningUseCase = mockk(),
-            refreshSelectedLibraryAudiobooksUseCase = mockk(),
-            selectLibraryUseCase = mockk(),
+            selectLibraryUseCase = selectLibrary,
+            appSettingsStore = settings,
             playbackConnection = playbackConnection,
             snackbar = snackbar,
         )

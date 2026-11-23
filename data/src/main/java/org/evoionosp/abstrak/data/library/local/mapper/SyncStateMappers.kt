@@ -13,7 +13,7 @@ internal fun LibrarySyncStateEntity?.toDomain(): SyncStatus {
         }
     return when (status) {
         "SYNCING" -> {
-            SyncStatus.Syncing
+            SyncStatus.Syncing(lastSyncedAtMillis = lastSyncedAtMillis)
         }
 
         "SUCCESS" -> {
@@ -28,7 +28,10 @@ internal fun LibrarySyncStateEntity?.toDomain(): SyncStatus {
         }
 
         "FAILED" -> {
-            SyncStatus.Failed(error ?: CatalogError.UNKNOWN)
+            SyncStatus.Failed(
+                reason = error ?: CatalogError.UNKNOWN,
+                lastSyncedAtMillis = lastSyncedAtMillis,
+            )
         }
 
         else -> {

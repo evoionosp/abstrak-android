@@ -11,6 +11,9 @@ import org.evoionosp.abstrak.domain.auth.model.LoginData
 import org.evoionosp.abstrak.domain.auth.model.LoginResult
 import org.evoionosp.abstrak.domain.library.model.CatalogError
 import org.evoionosp.abstrak.domain.library.model.DomainResult
+import org.evoionosp.abstrak.domain.library.model.SyncStatus
+import org.evoionosp.abstrak.domain.library.sync.LibrarySyncPolicy
+import org.evoionosp.abstrak.domain.library.usecase.SyncLibraryBooksUseCase
 import org.evoionosp.abstrak.domain.session.LoginSession
 import org.evoionosp.abstrak.domain.session.usecase.GetValidSessionUseCase
 import org.evoionosp.abstrak.domain.session.usecase.ObserveSessionUseCase
@@ -113,6 +116,25 @@ class RefreshLibraryCatalogsUseCaseTest {
         }
 
     @Test
+    fun `skips libraries that synced within the day`() =
+        runTest {
+            audiobooks.syncStatusByLibrary["lib-2"] = SyncStatus.Success(lastSyncedAtMillis = NOW - 1)
+            audiobooks.syncStatusByLibrary["lib-3"] =
+                SyncStatus.Success(lastSyncedAtMillis = NOW - LibrarySyncPolicy.INTERVAL_MILLIS)
+            val stages = useCase()().toList()
+            assertEquals(listOf(CatalogRefreshStage.OTHER_LIBRARIES), stages)
+            assertEquals(listOf("lib-1", "lib-3"), audiobooks.refreshedBookLibraries)
+        }
+
+    @Test
+    fun `reports no stage when no library is due`() =
+        runTest {
+            libraries.forEach { audiobooks.syncStatusByLibrary[it.id] = SyncStatus.Success(lastSyncedAtMillis = NOW) }
+            assertEquals(emptyList<CatalogRefreshStage>(), useCase()().toList())
+            assertEquals(emptyList<String>(), audiobooks.refreshedBookLibraries)
+        }
+
+    @Test
     fun `does nothing without a session`() =
         runTest {
             val stages = useCase(FakeSessionStore(null))().toList()
@@ -127,7 +149,11 @@ class RefreshLibraryCatalogsUseCaseTest {
             observeSessionUseCase = ObserveSessionUseCase(sessionStore),
             getValidSessionUseCase = GetValidSessionUseCase(sessionStore, SessionRefreshCoordinator(sessionStore, auth)),
             libraryRepository = FakeLibraryRepository(libraries = libraries),
-            audiobookRepository = audiobooks,
+            syncLibraryBooksUseCase = SyncLibraryBooksUseCase(audiobooks) { NOW },
         )
+    }
+
+    private companion object {
+        const val NOW = 1_700_000_000_000L
     }
 }

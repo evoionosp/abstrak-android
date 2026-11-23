@@ -14,7 +14,9 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.first
 import org.evoionosp.abstrak.data.R
+import org.evoionosp.abstrak.data.connectivity.OfflineModeState
 import org.evoionosp.abstrak.data.download.local.dao.TrackDownloadDao
 import org.evoionosp.abstrak.domain.download.repository.DownloadRepository
 import org.evoionosp.abstrak.domain.session.usecase.GetValidSessionUseCase
@@ -27,6 +29,8 @@ interface DownloadWorkerEntryPoint {
     fun trackDownloadDao(): TrackDownloadDao
 
     fun downloadRepository(): DownloadRepository
+
+    fun offlineModeState(): OfflineModeState
 
     fun getValidSession(): GetValidSessionUseCase
 }
@@ -46,6 +50,9 @@ class TrackDownloadWorker(
                 applicationContext,
                 DownloadWorkerEntryPoint::class.java,
             )
+        // Offline mode holds downloads back, the tracks staying queued until it resumes them.
+        // Trying anyway would spend the retries every track gets on requests that cannot go out.
+        if (entryPoint.offlineModeState().isEnabled.first()) return Result.success()
         val getValidSession = entryPoint.getValidSession()
         trySetForeground(foregroundInfo(audiobookId, doneCount = 0, totalCount = trackIndexes.size))
         val result =

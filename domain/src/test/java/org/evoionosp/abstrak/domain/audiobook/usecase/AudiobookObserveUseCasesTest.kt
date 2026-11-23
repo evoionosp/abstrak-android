@@ -44,16 +44,11 @@ class AudiobookObserveUseCasesTest {
             val repository =
                 FakeAudiobookRepository(
                     refreshDetailResult = DomainResult.Failure(CatalogError.NOT_FOUND),
-                    refreshBooksResult = DomainResult.Failure(CatalogError.NETWORK),
                     refreshContinueResult = DomainResult.Success(Unit),
                 )
             assertEquals(
                 DomainResult.Failure(CatalogError.NOT_FOUND),
                 RefreshAudiobookDetailUseCase(repository)("https://example.com", "token", "lib-1", "book-1"),
-            )
-            assertEquals(
-                DomainResult.Failure(CatalogError.NETWORK),
-                RefreshSelectedLibraryAudiobooksUseCase(repository)("https://example.com", "token", "lib-1"),
             )
             assertEquals(
                 DomainResult.Success(Unit),

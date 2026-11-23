@@ -216,6 +216,22 @@ class DownloadRepositoryImpl
             }
         }
 
+        override suspend fun pauseDownloads() {
+            // A cancelled batch puts its unfinished tracks back in the queue; queued ones stay there.
+            scheduler.cancelAll()
+        }
+
+        override suspend fun resumeDownloads() {
+            withContext(ioDispatcher) {
+                trackDownloadDao
+                    .getAll()
+                    .filter { it.isActive }
+                    .map { it.audiobookId }
+                    .distinct()
+                    .forEach { rescheduleActive(it) }
+            }
+        }
+
         private suspend fun deleteRowsFirst(
             deleteRows: suspend () -> Unit,
             freeSpace: suspend () -> Unit,

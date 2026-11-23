@@ -1,15 +1,17 @@
 package org.evoionosp.abstrak.domain.catalog.usecase
 import kotlinx.coroutines.test.runTest
 import org.evoionosp.abstrak.domain.audiobook.usecase.RefreshContinueListeningUseCase
-import org.evoionosp.abstrak.domain.audiobook.usecase.RefreshSelectedLibraryAudiobooksUseCase
 import org.evoionosp.abstrak.domain.auth.SessionRefreshCoordinator
 import org.evoionosp.abstrak.domain.auth.model.LoginData
 import org.evoionosp.abstrak.domain.auth.model.LoginResult
 import org.evoionosp.abstrak.domain.library.model.CatalogError
 import org.evoionosp.abstrak.domain.library.model.DomainResult
+import org.evoionosp.abstrak.domain.library.model.SyncStatus
+import org.evoionosp.abstrak.domain.library.sync.LibrarySyncPolicy
 import org.evoionosp.abstrak.domain.library.usecase.ObserveLibrariesUseCase
 import org.evoionosp.abstrak.domain.library.usecase.ObserveSelectedLibraryUseCase
 import org.evoionosp.abstrak.domain.library.usecase.RefreshLibrariesUseCase
+import org.evoionosp.abstrak.domain.library.usecase.SyncLibraryBooksUseCase
 import org.evoionosp.abstrak.domain.session.LoginSession
 import org.evoionosp.abstrak.domain.session.usecase.GetValidSessionUseCase
 import org.evoionosp.abstrak.domain.testing.FakeAudiobookRepository
@@ -34,7 +36,7 @@ class RefreshHomeCatalogUseCaseTest {
     fun `returns SessionExpired when there is no session`() =
         runTest {
             val graph = graph(session = null)
-            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase())
+            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase(force = true))
             assertEquals(0, graph.libraries.refreshCallCount)
         }
 
@@ -46,7 +48,7 @@ class RefreshHomeCatalogUseCaseTest {
                     libraries = listOf(testLibrary(isSelected = true), testLibrary(id = "lib-2")),
                     selected = testLibrary(isSelected = true),
                 )
-            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase())
+            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase(force = true))
             assertEquals(listOf("lib-1"), graph.audiobooks.refreshedBookLibraries)
             assertEquals(listOf("lib-1"), graph.audiobooks.refreshedContinueLibraries)
         }
@@ -59,7 +61,7 @@ class RefreshHomeCatalogUseCaseTest {
                     libraries = listOf(testLibrary(id = "lib-1"), testLibrary(id = "lib-2")),
                     selected = null,
                 )
-            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase())
+            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase(force = true))
             assertEquals(listOf("lib-1"), graph.audiobooks.refreshedBookLibraries)
         }
 
@@ -72,7 +74,7 @@ class RefreshHomeCatalogUseCaseTest {
                     selected = testLibrary(isSelected = true),
                     libraryRefresh = DomainResult.Failure(CatalogError.AUTH),
                 )
-            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase())
+            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase(force = true))
         }
 
     @Test
@@ -84,7 +86,7 @@ class RefreshHomeCatalogUseCaseTest {
                     selected = testLibrary(isSelected = true),
                     booksRefresh = DomainResult.Failure(CatalogError.AUTH),
                 )
-            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase())
+            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase(force = true))
         }
 
     @Test
@@ -96,7 +98,7 @@ class RefreshHomeCatalogUseCaseTest {
                     selected = testLibrary(isSelected = true),
                     continueRefresh = DomainResult.Failure(CatalogError.AUTH),
                 )
-            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase())
+            assertEquals(RefreshHomeCatalogResult.SessionExpired, graph.useCase(force = true))
         }
 
     @Test
@@ -105,7 +107,7 @@ class RefreshHomeCatalogUseCaseTest {
             val graph = graph(libraries = emptyList(), selected = null)
             assertEquals(
                 RefreshHomeCatalogResult.Failure(CatalogError.NO_AUDIOBOOK_LIBRARIES),
-                graph.useCase(),
+                graph.useCase(force = true),
             )
         }
 
@@ -120,7 +122,7 @@ class RefreshHomeCatalogUseCaseTest {
                 )
             assertEquals(
                 RefreshHomeCatalogResult.Failure(CatalogError.NETWORK),
-                graph.useCase(),
+                graph.useCase(force = true),
             )
         }
 
@@ -135,7 +137,7 @@ class RefreshHomeCatalogUseCaseTest {
                 )
             assertEquals(
                 RefreshHomeCatalogResult.Failure(CatalogError.NOT_FOUND),
-                graph.useCase(),
+                graph.useCase(force = true),
             )
         }
 
@@ -148,7 +150,72 @@ class RefreshHomeCatalogUseCaseTest {
                     selected = testLibrary(isSelected = true),
                     continueRefresh = DomainResult.Failure(CatalogError.NETWORK),
                 )
-            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase())
+            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase(force = true))
+        }
+
+    @Test
+    fun `an automatic refresh skips a library that synced within the day but refreshes continue listening`() =
+        runTest {
+            val graph =
+                graph(
+                    libraries = listOf(testLibrary(isSelected = true)),
+                    selected = testLibrary(isSelected = true),
+                    syncStatus = SyncStatus.Success(lastSyncedAtMillis = NOW - LibrarySyncPolicy.INTERVAL_MILLIS + 1),
+                )
+            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase(force = false))
+            assertEquals(0, graph.libraries.refreshCallCount)
+            assertEquals(emptyList<String>(), graph.audiobooks.refreshedBookLibraries)
+            assertEquals(listOf("lib-1"), graph.audiobooks.refreshedContinueLibraries)
+        }
+
+    @Test
+    fun `an automatic refresh syncs a library whose last sync is a day old`() =
+        runTest {
+            val graph =
+                graph(
+                    libraries = listOf(testLibrary(isSelected = true)),
+                    selected = testLibrary(isSelected = true),
+                    syncStatus = SyncStatus.Stale(NOW - LibrarySyncPolicy.INTERVAL_MILLIS, CatalogError.NETWORK),
+                )
+            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase(force = false))
+            assertEquals(1, graph.libraries.refreshCallCount)
+            assertEquals(listOf("lib-1"), graph.audiobooks.refreshedBookLibraries)
+        }
+
+    @Test
+    fun `an automatic refresh syncs a library that never synced`() =
+        runTest {
+            val graph =
+                graph(
+                    libraries = listOf(testLibrary(isSelected = true)),
+                    selected = testLibrary(isSelected = true),
+                    syncStatus = SyncStatus.Idle,
+                )
+            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase(force = false))
+            assertEquals(1, graph.libraries.refreshCallCount)
+            assertEquals(listOf("lib-1"), graph.audiobooks.refreshedBookLibraries)
+        }
+
+    @Test
+    fun `an automatic refresh fetches the library list when none is on the device`() =
+        runTest {
+            val graph = graph(libraries = emptyList(), selected = null)
+            graph.useCase(force = false)
+            assertEquals(1, graph.libraries.refreshCallCount)
+        }
+
+    @Test
+    fun `a forced refresh syncs a library that synced moments ago`() =
+        runTest {
+            val graph =
+                graph(
+                    libraries = listOf(testLibrary(isSelected = true)),
+                    selected = testLibrary(isSelected = true),
+                    syncStatus = SyncStatus.Success(lastSyncedAtMillis = NOW),
+                )
+            assertEquals(RefreshHomeCatalogResult.Success, graph.useCase(force = true))
+            assertEquals(1, graph.libraries.refreshCallCount)
+            assertEquals(listOf("lib-1"), graph.audiobooks.refreshedBookLibraries)
         }
 
     private fun graph(
@@ -158,6 +225,7 @@ class RefreshHomeCatalogUseCaseTest {
         libraryRefresh: DomainResult<Unit> = DomainResult.Success(Unit),
         booksRefresh: DomainResult<Unit> = DomainResult.Success(Unit),
         continueRefresh: DomainResult<Unit> = DomainResult.Success(Unit),
+        syncStatus: SyncStatus = SyncStatus.Idle,
     ): Graph {
         val store = FakeSessionStore(session)
         val auth = FakeAuthRepository(LoginResult.Success(LoginData("new-access", "refresh-2", "user-1")))
@@ -171,17 +239,21 @@ class RefreshHomeCatalogUseCaseTest {
             FakeAudiobookRepository(
                 refreshBooksResult = booksRefresh,
                 refreshContinueResult = continueRefresh,
-            )
+            ).also { it.syncStatus = syncStatus }
         val useCase =
             RefreshHomeCatalogUseCase(
                 getValidSessionUseCase = GetValidSessionUseCase(store, SessionRefreshCoordinator(store, auth)),
                 refreshLibrariesUseCase = RefreshLibrariesUseCase(libraryRepository),
                 observeSelectedLibraryUseCase = ObserveSelectedLibraryUseCase(libraryRepository),
                 observeLibrariesUseCase = ObserveLibrariesUseCase(libraryRepository),
-                refreshSelectedLibraryAudiobooksUseCase = RefreshSelectedLibraryAudiobooksUseCase(audiobookRepository),
+                syncLibraryBooksUseCase = SyncLibraryBooksUseCase(audiobookRepository) { NOW },
                 refreshContinueListeningUseCase = RefreshContinueListeningUseCase(audiobookRepository),
             )
         return Graph(useCase, libraryRepository, audiobookRepository)
+    }
+
+    private companion object {
+        const val NOW = 1_700_000_000_000L
     }
 
     private data class Graph(

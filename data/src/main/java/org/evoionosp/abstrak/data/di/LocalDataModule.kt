@@ -7,16 +7,19 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 import org.evoionosp.abstrak.data.audiobook.local.dao.AudiobookDao
 import org.evoionosp.abstrak.data.audiobook.local.dao.AudiobookDetailDao
 import org.evoionosp.abstrak.data.audiobook.local.dao.ContinueListeningDao
 import org.evoionosp.abstrak.data.audiobook.local.dao.PendingProgressDao
 import org.evoionosp.abstrak.data.connectivity.AndroidConnectivityObserver
+import org.evoionosp.abstrak.data.connectivity.OfflineAwareConnectivityObserver
 import org.evoionosp.abstrak.data.download.local.dao.TrackDownloadDao
 import org.evoionosp.abstrak.data.library.local.dao.LibraryDao
 import org.evoionosp.abstrak.data.library.local.dao.LibrarySyncStateDao
 import org.evoionosp.abstrak.data.library.local.db.AbstrakDatabase
+import org.evoionosp.abstrak.data.library.local.db.InterruptedSyncReset
 import org.evoionosp.abstrak.data.library.local.db.ResettingOpenHelperFactory
 import org.evoionosp.abstrak.domain.connectivity.ConnectivityObserver
 
@@ -25,7 +28,12 @@ import org.evoionosp.abstrak.domain.connectivity.ConnectivityObserver
 abstract class ConnectivityModule {
     @Binds
     @Singleton
-    abstract fun bindConnectivityObserver(impl: AndroidConnectivityObserver): ConnectivityObserver
+    abstract fun bindConnectivityObserver(impl: OfflineAwareConnectivityObserver): ConnectivityObserver
+
+    @Binds
+    @Singleton
+    @Named(OfflineAwareConnectivityObserver.DEVICE_NETWORK)
+    abstract fun bindDeviceNetworkObserver(impl: AndroidConnectivityObserver): ConnectivityObserver
 }
 
 @Module
@@ -43,6 +51,7 @@ object LocalDataModule {
                 "abstrak.db",
             ).fallbackToDestructiveMigration(dropAllTables = true)
             .openHelperFactory(ResettingOpenHelperFactory())
+            .addCallback(InterruptedSyncReset)
             .build()
 
     @Provides

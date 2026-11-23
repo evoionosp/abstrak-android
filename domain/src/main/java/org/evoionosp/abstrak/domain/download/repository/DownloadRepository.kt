@@ -31,6 +31,12 @@ interface DownloadRepository {
 
     suspend fun reconcileStorage()
 
+    /** Stops downloads in progress and holds back queued ones, all staying queued, until [resumeDownloads]. */
+    suspend fun pauseDownloads()
+
+    /** Starts every queued download again, including any [pauseDownloads] held back. */
+    suspend fun resumeDownloads()
+
     suspend fun deleteBook(audiobookId: String)
 
     suspend fun deleteTrack(

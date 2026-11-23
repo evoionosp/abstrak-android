@@ -9,7 +9,9 @@ class SchedulePendingProgressSyncUseCase
         private val pendingProgressStore: PendingProgressStore,
         private val progressSyncScheduler: ProgressSyncScheduler,
     ) {
-        suspend operator fun invoke() {
-            if (pendingProgressStore.getAll().isNotEmpty()) progressSyncScheduler.schedule()
+        /** Schedules delivery of queued progress, if any; [immediately] skips a pending retry backoff. */
+        suspend operator fun invoke(immediately: Boolean = false) {
+            if (pendingProgressStore.getAll().isEmpty()) return
+            if (immediately) progressSyncScheduler.scheduleNow() else progressSyncScheduler.schedule()
         }
     }

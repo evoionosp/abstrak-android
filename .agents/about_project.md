@@ -50,6 +50,7 @@ The long-term product direction is broader than a basic Android phone app. The a
 - Playback progress sync: nothing is saved until a book has played 15 s, then every 15 s while playing plus on pause, seek, chapter jump, book switch, stop, and playback end. Saves the server can't take queue in Room and a WorkManager job delivers them once online, even after the app is killed; queued progress reaches the server only when updated more recently than the server's, else the server's is pulled to the device (Continue Listening and the loaded book). Resume takes the more recently updated of the two, offline the device's own record.
 - Chapter navigation (next/previous, play-from-chapter) and playback speed control (0.5x–4x).
 - Basic settings and appearance preferences UI.
+- Library sync once a day (pull to refresh syncs any time), with a status chip on the Library tab that opens a sheet with an offline mode switch: the app then acts as if there were no network.
 - Downloads tab: books with download rows across libraries, with sizes on disk; delete per book or via multi-select, and download chapters from Book Details.
 - Search tab: searches the cached catalog by title and author (case- and accent-insensitive, every word must match), across all libraries or only the selected one per preference.
 - Downloads & Storage settings page: storage summary splitting downloads, cache and free space; Wi-Fi-only and auto-delete toggles; clearing all downloaded media.

@@ -28,6 +28,7 @@ class AppSettingsDataStore(
         val searchAllLibraries = booleanPreferencesKey("search_all_libraries")
         val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
         val autoDeleteFinishedDownloads = booleanPreferencesKey("auto_delete_finished_downloads")
+        val useOfflineMode = booleanPreferencesKey("use_offline_mode")
     }
 
     override val settings: Flow<AppSettings> =
@@ -93,6 +94,12 @@ class AppSettingsDataStore(
         }
     }
 
+    override suspend fun setOfflineMode(enabled: Boolean) {
+        context.appSettingsDataStore.edit { preferences ->
+            preferences[Keys.useOfflineMode] = enabled
+        }
+    }
+
     private fun toAppSettings(preferences: Preferences): AppSettings =
         AppSettings(
             themePreference =
@@ -110,5 +117,6 @@ class AppSettingsDataStore(
             searchAllLibraries = preferences[Keys.searchAllLibraries] ?: true,
             downloadWifiOnly = preferences[Keys.downloadWifiOnly] ?: false,
             autoDeleteFinishedDownloads = preferences[Keys.autoDeleteFinishedDownloads] ?: false,
+            useOfflineMode = preferences[Keys.useOfflineMode] ?: false,
         )
 }

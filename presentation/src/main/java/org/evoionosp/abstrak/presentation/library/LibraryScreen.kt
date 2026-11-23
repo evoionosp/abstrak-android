@@ -1,5 +1,6 @@
 package org.evoionosp.abstrak.presentation.library
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,13 +42,15 @@ import org.evoionosp.abstrak.presentation.home.HomeUiState
 import org.evoionosp.abstrak.presentation.home.HomeViewModel
 import org.evoionosp.abstrak.presentation.library.components.LibraryPicker
 import org.evoionosp.abstrak.presentation.library.components.LibraryStats
-import org.evoionosp.abstrak.presentation.library.components.LibrarySyncStatus
+import org.evoionosp.abstrak.presentation.library.components.LibrarySyncChip
+import org.evoionosp.abstrak.presentation.library.components.LibrarySyncSheet
 import org.evoionosp.abstrak.presentation.ui.catalog.AudiobookGridCard
 import org.evoionosp.abstrak.presentation.ui.catalog.AudiobookListCard
 import org.evoionosp.abstrak.presentation.ui.catalog.RootHeader
 import org.evoionosp.abstrak.presentation.ui.catalog.RootScreenSurface
 import org.evoionosp.abstrak.presentation.ui.catalog.rememberCatalogBookClick
 import org.evoionosp.abstrak.presentation.ui.model.AudiobookUiModel
+import org.evoionosp.abstrak.presentation.ui.time.rememberCurrentTimeMillis
 
 private const val GRID_COLUMNS = 12
 private val ItemGap = 12.dp
@@ -69,9 +72,11 @@ fun LibraryRoute(
         state = state,
         isGridView = isGridView,
         bottomBarPadding = bottomBarPadding,
+        nowMillis = rememberCurrentTimeMillis(),
         onRefresh = viewModel::refresh,
         onLibrarySelected = viewModel::onLibrarySelected,
         onToggleLayout = { isGridView = !isGridView },
+        onOfflineModeChange = viewModel::setOfflineMode,
         onOpenSettings = onOpenSettings,
         onOpenAudiobook = rememberCatalogBookClick(onOpenAudiobook),
         modifier = modifier,
@@ -84,13 +89,25 @@ fun LibraryScreen(
     state: HomeUiState,
     isGridView: Boolean,
     bottomBarPadding: Dp,
+    nowMillis: Long,
     onRefresh: () -> Unit,
     onLibrarySelected: (String) -> Unit,
     onToggleLayout: () -> Unit,
+    onOfflineModeChange: (Boolean) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAudiobook: (AudiobookUiModel) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showSyncSheet by rememberSaveable { mutableStateOf(false) }
+    if (showSyncSheet) {
+        LibrarySyncSheet(
+            syncStatus = state.syncStatus,
+            isOfflineMode = state.isOfflineMode,
+            nowMillis = nowMillis,
+            onOfflineModeChange = onOfflineModeChange,
+            onDismiss = { showSyncSheet = false },
+        )
+    }
     RootScreenSurface(modifier = modifier) {
         val pullToRefreshState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -132,7 +149,14 @@ fun LibraryScreen(
                 }
                 if (state.libraries.isNotEmpty()) {
                     item(span = { GridItemSpan(GRID_COLUMNS) }) {
-                        LibrarySyncStatus(syncStatus = state.syncStatus)
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            LibrarySyncChip(
+                                syncStatus = state.syncStatus,
+                                isOfflineMode = state.isOfflineMode,
+                                nowMillis = nowMillis,
+                                onClick = { showSyncSheet = true },
+                            )
+                        }
                     }
                 }
                 if (state.audiobooks.isEmpty() && state.ebooks.isEmpty() && state.libraries.isNotEmpty()) {

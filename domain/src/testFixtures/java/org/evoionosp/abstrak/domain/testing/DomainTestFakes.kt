@@ -79,6 +79,7 @@ class FakeAudiobookRepository(
     val allBooksFlow = MutableStateFlow<List<Audiobook>>(emptyList())
     var continueListening: List<Audiobook> = emptyList()
     var syncStatus: SyncStatus = SyncStatus.Idle
+    val syncStatusByLibrary = mutableMapOf<String, SyncStatus>()
     val refreshedBookLibraries = mutableListOf<String>()
     val refreshedContinueLibraries = mutableListOf<String>()
     val refreshedDetails = mutableListOf<Pair<String, String>>()
@@ -134,7 +135,8 @@ class FakeAudiobookRepository(
         return refreshDetailResult
     }
 
-    override fun observeLibrarySyncStatus(libraryId: String): Flow<SyncStatus> = MutableStateFlow(syncStatus)
+    override fun observeLibrarySyncStatus(libraryId: String): Flow<SyncStatus> =
+        MutableStateFlow(syncStatusByLibrary[libraryId] ?: syncStatus)
 
     override suspend fun refreshAudiobooks(
         baseUrl: String,
@@ -219,9 +221,15 @@ class FakePendingProgressStore : PendingProgressStore {
 class FakeProgressSyncScheduler : ProgressSyncScheduler {
     var scheduleCount = 0
         private set
+    var scheduleNowCount = 0
+        private set
 
     override fun schedule() {
         scheduleCount++
+    }
+
+    override fun scheduleNow() {
+        scheduleNowCount++
     }
 }
 
@@ -318,6 +326,19 @@ class FakeDownloadRepository : DownloadRepository {
     override suspend fun reconcileStorage() {
         reconcileCount++
     }
+
+    var pauseCount = 0
+        private set
+    var resumeCount = 0
+        private set
+
+    override suspend fun pauseDownloads() {
+        pauseCount++
+    }
+
+    override suspend fun resumeDownloads() {
+        resumeCount++
+    }
 }
 
 class FakeAppSettingsStore(
@@ -356,6 +377,10 @@ class FakeAppSettingsStore(
 
     override suspend fun setAutoDeleteFinishedDownloads(enabled: Boolean) {
         state.value = state.value.copy(autoDeleteFinishedDownloads = enabled)
+    }
+
+    override suspend fun setOfflineMode(enabled: Boolean) {
+        state.value = state.value.copy(useOfflineMode = enabled)
     }
 }
 
