@@ -94,6 +94,11 @@
 - Every actionable icon has a content description, and custom clickables declare a `Role`.
 - An image next to a visible title gets a `null` content description, so TalkBack doesn't read the title twice.
 
+### App icons
+
+- Every launcher icon is generated from one vector. Change the A in `src/main/app-icon/foreground_template.xml` and the colors in `res/values/app_icon_palettes.xml`, never the generated `app_icon_*` drawables. A new icon also needs an `AppIcon` entry and its `activity-alias` in the presentation manifest.
+- Drawables and mipmaps are vectors only; `VectorOnlyIconsTest` fails on a raster image.
+
 ### Previews
 
 - There are none yet. When they are added (with `ui-tooling` as a debug dependency and shared sample data), every component gets a light and dark preview and every screen a preview per state: loading, empty, content and error.

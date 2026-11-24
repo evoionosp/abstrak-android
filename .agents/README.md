@@ -11,6 +11,7 @@ Current implementation snapshot:
 - Logout runs a single ordered flow (`LogoutUserUseCase`): stops playback, clears the session, wipes catalog/cover caches and downloads; the remembered server URL and all app settings survive.
 - Continue Listening shows per-book time left at 1x, hydrated from the server progress API, and follows playback live (every progress save records it locally first, offline too).
 - The library syncs on its own once a day (pull to refresh any time); a status chip on the Library tab shows how fresh it is and opens an offline mode switch that makes the app act as if there were no network.
+- The app icon is switchable in Settings > Appearance (Forest or Island, light or dark). Every icon is generated at build time from one vector of the A, and the launcher switches to the chosen one when the app goes to the background.
 - Still not implemented: queue UI, filtering, Android Auto, and Wear OS.
 
 Files in this directory:

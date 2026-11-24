@@ -7,11 +7,64 @@
             android:exported="true"
             android:label="@string/app_name"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/AppTheme.Splash">
+            android:theme="@style/AppTheme.Splash" />
+
+        <!--
+            The launcher entries, one per app icon (Settings > Appearance > App icon), all opening
+            MainActivity. Exactly one is enabled: Island Light by default, after that whichever
+            LauncherIconSwitcher enabled. They must follow MainActivity, their target.
+        -->
+        <activity-alias
+            android:name=".launcher.IslandLight"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_island_light"
+            android:roundIcon="@mipmap/app_icon_island_light"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name=".launcher.IslandDark"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_island_dark"
+            android:roundIcon="@mipmap/app_icon_island_dark"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".launcher.ForestLight"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_forest_light"
+            android:roundIcon="@mipmap/app_icon_forest_light"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".launcher.ForestDark"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/app_icon_forest_dark"
+            android:roundIcon="@mipmap/app_icon_forest_dark"
+            android:label="@string/app_name"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>

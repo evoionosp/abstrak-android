@@ -30,7 +30,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import org.evoionosp.abstrak.presentation.designsystem.component.snackbar.AbstrakSnackbar
-import org.evoionosp.abstrak.presentation.designsystem.theme.ThemePreference
 import org.evoionosp.abstrak.presentation.permissions.RequestNotificationPermissionEffect
 import org.evoionosp.abstrak.presentation.player.MiniPlayerRoute
 import org.evoionosp.abstrak.presentation.player.NowPlayingRoute
@@ -38,6 +37,7 @@ import org.evoionosp.abstrak.presentation.player.NowPlayingViewModel
 import org.evoionosp.abstrak.presentation.player.gesture.SheetDragState
 import org.evoionosp.abstrak.presentation.player.overlay.MINI_BOTTOM_GAP
 import org.evoionosp.abstrak.presentation.player.overlay.NowPlayingOverlay
+import org.evoionosp.abstrak.presentation.settings.AppearanceAction
 import org.evoionosp.abstrak.presentation.settings.SettingsUiState
 import org.evoionosp.abstrak.presentation.splash.SplashUiState
 import org.evoionosp.abstrak.presentation.splash.StartupDestination
@@ -52,10 +52,7 @@ fun AbstrakApp(
     settingsState: SettingsUiState,
     onRetryCatalogBootstrap: () -> Unit,
     onLogout: () -> Unit,
-    onThemePreferenceChange: (ThemePreference) -> Unit,
-    onDynamicColorChange: (Boolean) -> Unit,
-    onCoverThemeChange: (Boolean) -> Unit,
-    onMoonlessNightChange: (Boolean) -> Unit,
+    onAppearanceAction: (AppearanceAction) -> Unit,
     snackbarController: SnackbarController,
     nowPlayingViewModel: NowPlayingViewModel = hiltViewModel(),
 ) {
@@ -139,10 +136,7 @@ fun AbstrakApp(
                         miniTrailPadding = miniTrailPadding,
                         onRetryCatalogBootstrap = onRetryCatalogBootstrap,
                         onLogout = onLogout,
-                        onThemePreferenceChange = onThemePreferenceChange,
-                        onDynamicColorChange = onDynamicColorChange,
-                        onCoverThemeChange = onCoverThemeChange,
-                        onMoonlessNightChange = onMoonlessNightChange,
+                        onAppearanceAction = onAppearanceAction,
                         onOpenAudiobook = { audiobook ->
                             navController.navigate(
                                 bookDetailsRoute(audiobook.libraryId, audiobook.id),

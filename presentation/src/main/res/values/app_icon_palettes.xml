@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    App icon palettes (Settings > Appearance > App icon). Every icon is the same Folded A,
+    src/main/app-icon/foreground_template.xml, in its own colors. A palette is the colors named
+    app_icon_<icon>_<facet>, plus app_icon_<icon>_background behind the A.
+
+    At build time, GenerateAppIconsTask (build.gradle.kts) turns each palette into
+    @drawable/app_icon_<icon>_foreground and the adaptive icon @mipmap/app_icon_<icon>. A new
+    icon also needs its launcher alias in AndroidManifest.xml and an AppIcon entry.
+
+    Light icons sit on white, dark icons on the dark theme's background (backgroundDark).
+
+    Lint doesn't scan generated resources, so it reports these colors as unused; the generated
+    icons use every one of them.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedResources">
+    <!-- Island Light: the default icon. -->
+    <color name="app_icon_island_light_background">#FFFFFF</color>
+    <color name="app_icon_island_light_seam_underlay">#55808A</color>
+    <color name="app_icon_island_light_left_stem">#3E764D</color>
+    <color name="app_icon_island_light_top_fold">#649686</color>
+    <color name="app_icon_island_light_right_stem">#A2CED8</color>
+    <color name="app_icon_island_light_left_foot">#B4F1BD</color>
+    <color name="app_icon_island_light_left_diagonal_fold">#A2DEAC</color>
+    <color name="app_icon_island_light_tucked_center_fold">#29555E</color>
+    <color name="app_icon_island_light_right_foot">#B9E6F1</color>
+    <color name="app_icon_island_light_diagonal_cross_fold">#55808A</color>
+
+    <!-- Island Dark -->
+    <color name="app_icon_island_dark_background">#101510</color>
+    <color name="app_icon_island_dark_seam_underlay">#8EBBC4</color>
+    <color name="app_icon_island_dark_left_stem">#76B083</color>
+    <color name="app_icon_island_dark_top_fold">#A6D9C5</color>
+    <color name="app_icon_island_dark_right_stem">#B4E1EC</color>
+    <color name="app_icon_island_dark_left_foot">#B4F1BD</color>
+    <color name="app_icon_island_dark_left_diagonal_fold">#AFEBB8</color>
+    <color name="app_icon_island_dark_tucked_center_fold">#618E96</color>
+    <color name="app_icon_island_dark_right_foot">#BBE8F3</color>
+    <color name="app_icon_island_dark_diagonal_cross_fold">#8EBBC4</color>
+
+    <!-- Forest Light -->
+    <color name="app_icon_forest_light_background">#FFFFFF</color>
+    <color name="app_icon_forest_light_seam_underlay">#4D855A</color>
+    <color name="app_icon_forest_light_left_stem">#3E764D</color>
+    <color name="app_icon_forest_light_top_fold">#60996D</color>
+    <color name="app_icon_forest_light_right_stem">#99D4A3</color>
+    <color name="app_icon_forest_light_left_foot">#B4F1BD</color>
+    <color name="app_icon_forest_light_left_diagonal_fold">#A2DEAC</color>
+    <color name="app_icon_forest_light_tucked_center_fold">#215933</color>
+    <color name="app_icon_forest_light_right_foot">#B0EDB9</color>
+    <color name="app_icon_forest_light_diagonal_cross_fold">#4D855A</color>
+
+    <!-- Forest Dark -->
+    <color name="app_icon_forest_dark_background">#101510</color>
+    <color name="app_icon_forest_dark_seam_underlay">#86C091</color>
+    <color name="app_icon_forest_dark_left_stem">#76B083</color>
+    <color name="app_icon_forest_dark_top_fold">#A1DCAA</color>
+    <color name="app_icon_forest_dark_right_stem">#ABE8B5</color>
+    <color name="app_icon_forest_dark_left_foot">#B4F1BD</color>
+    <color name="app_icon_forest_dark_left_diagonal_fold">#AFEBB8</color>
+    <color name="app_icon_forest_dark_tucked_center_fold">#589267</color>
+    <color name="app_icon_forest_dark_right_foot">#B2EFBB</color>
+    <color name="app_icon_forest_dark_diagonal_cross_fold">#86C091</color>
+</resources>

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import okhttp3.Call
+import org.evoionosp.abstrak.appicon.AppIconCoordinator
 import org.evoionosp.abstrak.catalog.CatalogSyncCoordinator
 import org.evoionosp.abstrak.data.network.ManagedOkHttpClients
 import org.evoionosp.abstrak.domain.audiobook.usecase.SchedulePendingProgressSyncUseCase
@@ -48,6 +49,9 @@ class AbstrakApplication :
     lateinit var followOfflineMode: FollowOfflineModeUseCase
 
     @Inject
+    lateinit var appIconCoordinator: AppIconCoordinator
+
+    @Inject
     @Named("application_scope")
     lateinit var applicationScope: CoroutineScope
 
@@ -55,6 +59,7 @@ class AbstrakApplication :
         super.onCreate()
         followThemePreferenceWithNightMode()
         catalogSyncCoordinator.start()
+        appIconCoordinator.start()
         applicationScope.launch {
             downloadRepository.reconcileStorage()
         }

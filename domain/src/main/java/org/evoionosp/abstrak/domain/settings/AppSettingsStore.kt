@@ -21,4 +21,6 @@ interface AppSettingsStore {
     suspend fun setAutoDeleteFinishedDownloads(enabled: Boolean)
 
     suspend fun setOfflineMode(enabled: Boolean)
+
+    suspend fun setAppIcon(icon: AppIcon)
 }

@@ -3,6 +3,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
+import org.evoionosp.abstrak.domain.settings.AppIcon
 import org.evoionosp.abstrak.domain.settings.AppSettings
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -28,6 +29,7 @@ class AppSettingsDataStoreTest {
             store.setDownloadWifiOnly(false)
             store.setAutoDeleteFinishedDownloads(false)
             store.setOfflineMode(false)
+            store.setAppIcon(AppIcon.DEFAULT)
         }
 
     @Test
@@ -123,6 +125,18 @@ class AppSettingsDataStoreTest {
                 assertEquals(false, awaitItem().searchAllLibraries)
                 store.setSearchAllLibraries(true)
                 assertEquals(true, awaitItem().searchAllLibraries)
+            }
+        }
+
+    @Test
+    fun `the app icon defaults to island light and the choice round-trips`() =
+        runTest {
+            store.settings.test {
+                assertEquals(AppIcon.ISLAND_LIGHT, awaitItem().appIcon)
+                store.setAppIcon(AppIcon.FOREST_DARK)
+                assertEquals(AppIcon.FOREST_DARK, awaitItem().appIcon)
+                store.setAppIcon(AppIcon.ISLAND_DARK)
+                assertEquals(AppIcon.ISLAND_DARK, awaitItem().appIcon)
             }
         }
 }

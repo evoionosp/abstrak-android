@@ -24,6 +24,7 @@ import org.evoionosp.abstrak.domain.library.repository.LibraryRepository
 import org.evoionosp.abstrak.domain.server.model.ServerCheckResult
 import org.evoionosp.abstrak.domain.server.model.ServerStatus
 import org.evoionosp.abstrak.domain.server.repository.ServerRepository
+import org.evoionosp.abstrak.domain.settings.AppIcon
 import org.evoionosp.abstrak.domain.settings.AppSettings
 import org.evoionosp.abstrak.domain.settings.AppSettingsStore
 
@@ -381,6 +382,10 @@ class FakeAppSettingsStore(
 
     override suspend fun setOfflineMode(enabled: Boolean) {
         state.value = state.value.copy(useOfflineMode = enabled)
+    }
+
+    override suspend fun setAppIcon(icon: AppIcon) {
+        state.value = state.value.copy(appIcon = icon)
     }
 }
 

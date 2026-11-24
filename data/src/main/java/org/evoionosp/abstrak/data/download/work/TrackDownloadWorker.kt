@@ -84,7 +84,7 @@ class TrackDownloadWorker(
         ensureChannel()
         val context = applicationContext
         val contentIntent =
-            context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launch ->
+            appLaunchIntent(context)?.let { launch ->
                 PendingIntent.getActivity(
                     context,
                     audiobookId.hashCode(),
@@ -137,6 +137,21 @@ class TrackDownloadWorker(
                 ),
             )
         }
+    }
+
+    /**
+     * Opens the app at the activity behind its launcher entry. The entry itself, which
+     * getLaunchIntentForPackage names, changes with the app icon, and a notification pointing
+     * at one that has since been switched off would open nothing.
+     */
+    private fun appLaunchIntent(context: Context): Intent? {
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return null
+        val activity =
+            context.packageManager
+                .resolveActivity(launch, 0)
+                ?.activityInfo
+                ?.targetActivity ?: return launch
+        return launch.setClassName(context, activity)
     }
 
     companion object {
