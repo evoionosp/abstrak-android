@@ -1,6 +1,5 @@
 package org.evoionosp.abstrak.data.download.repository
 import android.database.sqlite.SQLiteFullException
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -20,6 +19,7 @@ import kotlinx.coroutines.withContext
 import org.evoionosp.abstrak.data.audiobook.local.dao.AudiobookDetailDao
 import org.evoionosp.abstrak.data.audiobook.local.mapper.toAudiobook
 import org.evoionosp.abstrak.data.download.file.DownloadFileStore
+import org.evoionosp.abstrak.data.download.file.isPlayableDownload
 import org.evoionosp.abstrak.data.download.local.dao.TrackDownloadDao
 import org.evoionosp.abstrak.data.download.local.entity.TrackDownloadEntity
 import org.evoionosp.abstrak.data.download.local.mapper.queuedRow
@@ -193,7 +193,7 @@ class DownloadRepositoryImpl
             withContext(ioDispatcher) {
                 val row = trackDownloadDao.getTrack(audiobookId, trackIndex) ?: return@withContext null
                 if (row.status != DownloadStatus.COMPLETED.name) return@withContext null
-                val path = row.localPath?.takeIf { File(it).exists() } ?: return@withContext null
+                val path = row.localPath?.takeIf(::isPlayableDownload) ?: return@withContext null
                 if (isStaleIdentity(row)) return@withContext null
                 path
             }
@@ -203,10 +203,8 @@ class DownloadRepositoryImpl
                 trackDownloadDao.requeueStaleDownloading(now() - STALE_DOWNLOADING_MILLIS, now())
                 val rows = trackDownloadDao.getAll()
                 rows
-                    .filter {
-                        it.status == DownloadStatus.COMPLETED.name &&
-                            (it.localPath == null || !File(it.localPath).exists())
-                    }.forEach { trackDownloadDao.deleteTrack(it.audiobookId, it.trackIndex) }
+                    .filter { it.status == DownloadStatus.COMPLETED.name && !isPlayableDownload(it.localPath) }
+                    .forEach { trackDownloadDao.deleteTrack(it.audiobookId, it.trackIndex) }
                 val referenced =
                     buildSet {
                         rows.forEach { row ->
@@ -215,6 +213,22 @@ class DownloadRepositoryImpl
                         }
                     }
                 fileStore.deleteOrphanedFiles(referenced, now() - ORPHAN_AGE_MILLIS)
+            }
+        }
+
+        override suspend fun pauseDownloads() {
+            // A cancelled batch puts its unfinished tracks back in the queue; queued ones stay there.
+            scheduler.cancelAll()
+        }
+
+        override suspend fun resumeDownloads() {
+            withContext(ioDispatcher) {
+                trackDownloadDao
+                    .getAll()
+                    .filter { it.isActive }
+                    .map { it.audiobookId }
+                    .distinct()
+                    .forEach { rescheduleActive(it) }
             }
         }
 

@@ -1,20 +1,28 @@
 package org.evoionosp.abstrak.domain.library.model
 
 sealed interface SyncStatus {
-    data object Idle : SyncStatus
+    /** When the library's books last synced successfully, or null if they never have. */
+    val lastSyncedAtMillis: Long?
 
-    data object Syncing : SyncStatus
+    data object Idle : SyncStatus {
+        override val lastSyncedAtMillis: Long? = null
+    }
+
+    data class Syncing(
+        override val lastSyncedAtMillis: Long? = null,
+    ) : SyncStatus
 
     data class Success(
-        val lastSyncedAtMillis: Long?,
+        override val lastSyncedAtMillis: Long?,
     ) : SyncStatus
 
     data class Stale(
-        val lastSyncedAtMillis: Long?,
+        override val lastSyncedAtMillis: Long?,
         val reason: CatalogError,
     ) : SyncStatus
 
     data class Failed(
         val reason: CatalogError,
+        override val lastSyncedAtMillis: Long? = null,
     ) : SyncStatus
 }

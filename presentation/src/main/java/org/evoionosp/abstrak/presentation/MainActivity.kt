@@ -44,10 +44,7 @@ class MainActivity : ComponentActivity() {
                     settingsState = settingsState,
                     onRetryCatalogBootstrap = splashViewModel::retryCatalogBootstrap,
                     onLogout = splashViewModel::logout,
-                    onThemePreferenceChange = settingsViewModel::onThemePreferenceChange,
-                    onDynamicColorChange = settingsViewModel::onDynamicColorChange,
-                    onCoverThemeChange = settingsViewModel::onCoverThemeChange,
-                    onMoonlessNightChange = settingsViewModel::onMoonlessNightChange,
+                    onAppearanceAction = settingsViewModel::onAppearanceAction,
                     snackbarController = snackbarController,
                 )
             }

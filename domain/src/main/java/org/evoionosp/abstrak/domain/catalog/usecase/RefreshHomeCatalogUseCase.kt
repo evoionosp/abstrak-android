@@ -2,12 +2,12 @@ package org.evoionosp.abstrak.domain.catalog.usecase
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import org.evoionosp.abstrak.domain.audiobook.usecase.RefreshContinueListeningUseCase
-import org.evoionosp.abstrak.domain.audiobook.usecase.RefreshSelectedLibraryAudiobooksUseCase
 import org.evoionosp.abstrak.domain.library.model.CatalogError
 import org.evoionosp.abstrak.domain.library.model.DomainResult
 import org.evoionosp.abstrak.domain.library.usecase.ObserveLibrariesUseCase
 import org.evoionosp.abstrak.domain.library.usecase.ObserveSelectedLibraryUseCase
 import org.evoionosp.abstrak.domain.library.usecase.RefreshLibrariesUseCase
+import org.evoionosp.abstrak.domain.library.usecase.SyncLibraryBooksUseCase
 import org.evoionosp.abstrak.domain.session.LoginSession
 import org.evoionosp.abstrak.domain.session.usecase.GetValidSessionUseCase
 
@@ -28,19 +28,28 @@ class RefreshHomeCatalogUseCase
         private val refreshLibrariesUseCase: RefreshLibrariesUseCase,
         private val observeSelectedLibraryUseCase: ObserveSelectedLibraryUseCase,
         private val observeLibrariesUseCase: ObserveLibrariesUseCase,
-        private val refreshSelectedLibraryAudiobooksUseCase: RefreshSelectedLibraryAudiobooksUseCase,
+        private val syncLibraryBooksUseCase: SyncLibraryBooksUseCase,
         private val refreshContinueListeningUseCase: RefreshContinueListeningUseCase,
     ) {
-        suspend operator fun invoke(): RefreshHomeCatalogResult {
+        /**
+         * Syncs the library list and the selected library's books when the daily library sync is
+         * due, or every time when [force]d (pull to refresh). Continue Listening refreshes either
+         * way: it follows listening on other devices, so it does not wait for the daily sync.
+         */
+        suspend operator fun invoke(force: Boolean): RefreshHomeCatalogResult {
             val session = getValidSessionUseCase() ?: return RefreshHomeCatalogResult.SessionExpired
-            val libraryRefreshResult = refreshLibraries(session)
+            val libraryRefreshResult =
+                if (force || isLibrarySyncDue()) refreshLibraries(session) else DomainResult.Success(Unit)
             if (libraryRefreshResult.isAuthFailure()) return RefreshHomeCatalogResult.SessionExpired
             val selectedLibraryId =
-                observeSelectedLibraryUseCase().first()?.id
-                    ?: observeLibrariesUseCase().first().firstOrNull()?.id
-                    ?: return resultFor(libraryRefreshResult, CatalogError.NO_AUDIOBOOK_LIBRARIES)
+                selectedLibraryId() ?: return resultFor(libraryRefreshResult, CatalogError.NO_AUDIOBOOK_LIBRARIES)
             val audiobookRefreshResult =
-                refreshSelectedLibraryAudiobooks(session, selectedLibraryId)
+                syncLibraryBooksUseCase(
+                    baseUrl = session.baseUrl,
+                    accessToken = session.accessToken,
+                    libraryId = selectedLibraryId,
+                    force = force,
+                ) ?: DomainResult.Success(Unit)
             if (audiobookRefreshResult.isAuthFailure()) return RefreshHomeCatalogResult.SessionExpired
             val continueListeningResult = refreshContinueListening(session, selectedLibraryId)
             if (continueListeningResult.isAuthFailure()) return RefreshHomeCatalogResult.SessionExpired
@@ -59,6 +68,16 @@ class RefreshHomeCatalogUseCase
             }
         }
 
+        private suspend fun selectedLibraryId(): String? =
+            observeSelectedLibraryUseCase().first()?.id
+                ?: observeLibrariesUseCase().first().firstOrNull()?.id
+
+        /** Due when the library to sync is: with no library on the device yet, always. */
+        private suspend fun isLibrarySyncDue(): Boolean {
+            val libraryId = selectedLibraryId() ?: return true
+            return syncLibraryBooksUseCase.isDue(libraryId)
+        }
+
         private fun resultFor(
             libraryRefreshResult: DomainResult<Unit>,
             fallbackError: CatalogError,
@@ -73,16 +92,6 @@ class RefreshHomeCatalogUseCase
             refreshLibrariesUseCase(
                 baseUrl = session.baseUrl,
                 accessToken = session.accessToken,
-            )
-
-        private suspend fun refreshSelectedLibraryAudiobooks(
-            session: LoginSession,
-            libraryId: String,
-        ): DomainResult<Unit> =
-            refreshSelectedLibraryAudiobooksUseCase(
-                baseUrl = session.baseUrl,
-                accessToken = session.accessToken,
-                libraryId = libraryId,
             )
 
         private suspend fun refreshContinueListening(

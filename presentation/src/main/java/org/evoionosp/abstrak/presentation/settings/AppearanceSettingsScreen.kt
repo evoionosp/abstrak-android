@@ -11,6 +11,7 @@ import org.evoionosp.abstrak.presentation.designsystem.component.list.ListGroup
 import org.evoionosp.abstrak.presentation.designsystem.component.list.RadioListItem
 import org.evoionosp.abstrak.presentation.designsystem.component.list.SwitchListItem
 import org.evoionosp.abstrak.presentation.designsystem.theme.ThemePreference
+import org.evoionosp.abstrak.presentation.settings.components.AppIconPicker
 
 private data class ThemeOption(
     val preference: ThemePreference,
@@ -29,10 +30,7 @@ private val themeOptions =
 fun AppearanceSettingsScreen(
     settingsState: SettingsUiState,
     onBackClick: () -> Unit,
-    onThemePreferenceChange: (ThemePreference) -> Unit,
-    onDynamicColorChange: (Boolean) -> Unit,
-    onCoverThemeChange: (Boolean) -> Unit,
-    onMoonlessNightChange: (Boolean) -> Unit,
+    onAction: (AppearanceAction) -> Unit,
     modifier: Modifier = Modifier,
     miniTrailPadding: Dp = 0.dp,
 ) {
@@ -53,7 +51,7 @@ fun AppearanceSettingsScreen(
                         headline = stringResource(option.label),
                         supporting = stringResource(option.description),
                         selected = settingsState.themePreference == option.preference,
-                        onClick = { onThemePreferenceChange(option.preference) },
+                        onClick = { onAction(AppearanceAction.ThemePreferenceChange(option.preference)) },
                     )
                 }
                 GroupDivider()
@@ -61,7 +59,7 @@ fun AppearanceSettingsScreen(
                     headline = stringResource(R.string.theme_moonless_night),
                     supporting = stringResource(R.string.theme_moonless_night_desc),
                     checked = settingsState.useMoonlessNight,
-                    onCheckedChange = onMoonlessNightChange,
+                    onCheckedChange = { onAction(AppearanceAction.MoonlessNightChange(it)) },
                     enabled = settingsState.themePreference != ThemePreference.LIGHT,
                 )
             }
@@ -72,14 +70,23 @@ fun AppearanceSettingsScreen(
                     headline = stringResource(R.string.use_dynamic_color),
                     supporting = stringResource(R.string.use_dynamic_color_desc),
                     checked = settingsState.useDynamicColor,
-                    onCheckedChange = onDynamicColorChange,
+                    onCheckedChange = { onAction(AppearanceAction.DynamicColorChange(it)) },
                 )
                 GroupDivider()
                 SwitchListItem(
                     headline = stringResource(R.string.now_playing_cover_theme),
                     supporting = stringResource(R.string.now_playing_cover_theme_desc),
                     checked = settingsState.useCoverTheme,
-                    onCheckedChange = onCoverThemeChange,
+                    onCheckedChange = { onAction(AppearanceAction.CoverThemeChange(it)) },
+                )
+            }
+        }
+        item {
+            ListGroup(title = stringResource(R.string.preferences_app_icon)) {
+                AppIconPicker(
+                    selected = settingsState.appIcon,
+                    onVariantSelect = { onAction(AppearanceAction.AppIconVariantChange(it)) },
+                    onPaletteSelect = { onAction(AppearanceAction.AppIconPaletteChange(it)) },
                 )
             }
         }

@@ -12,6 +12,7 @@ import org.evoionosp.abstrak.domain.auth.model.AuthError
 import org.evoionosp.abstrak.domain.auth.model.LoginResult
 import org.evoionosp.abstrak.domain.auth.repository.AuthRepository
 import org.evoionosp.abstrak.domain.auth.usecase.LoginUseCase
+import org.evoionosp.abstrak.domain.server.ServerUrlValidator
 import org.evoionosp.abstrak.domain.server.model.ServerCheckResult
 import org.evoionosp.abstrak.domain.server.model.ServerError
 import org.evoionosp.abstrak.domain.server.model.ServerStatus
@@ -49,6 +50,14 @@ class AuthViewModelPrefillTest {
             advanceUntilIdle()
             assertEquals("https://", viewModel.uiState.value.protocol)
             assertEquals("books.example.com", viewModel.uiState.value.baseUrl)
+        }
+
+    @Test
+    fun `a prefilled server can be connected to straight away`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(lastServerUrl = "https://books.example.com")
+            advanceUntilIdle()
+            assertEquals(true, viewModel.uiState.value.isConnectEnabled)
         }
 
     @Test
@@ -98,6 +107,7 @@ class AuthViewModelPrefillTest {
             loginUseCase = LoginUseCase(authRepository),
             saveSessionUseCase = SaveSessionUseCase(sessionStore),
             observeLastServerUrlUseCase = ObserveLastServerUrlUseCase(sessionStore),
+            serverUrlValidator = ServerUrlValidator { it == "https://books.example.com" },
             snackbar = SnackbarController(),
         )
     }

@@ -22,7 +22,7 @@ class ResolveResumePositionUseCaseTest {
         }
 
     @Test
-    fun `resumes from queued progress further along than the server's`() =
+    fun `resumes from queued progress updated more recently than the server's`() =
         runTest {
             store.put("lib-1", "book-1", at(600.0))
             repository.fetchProgressResult = DomainResult.Success(at(120.0))
@@ -30,10 +30,26 @@ class ResolveResumePositionUseCaseTest {
         }
 
     @Test
-    fun `resumes from the server's progress further along than the queued`() =
+    fun `resumes from the server's progress updated more recently than the queued`() =
         runTest {
             store.put("lib-1", "book-1", at(60.0))
-            repository.fetchProgressResult = DomainResult.Success(at(120.0))
+            repository.fetchProgressResult = DomainResult.Success(at(120.0, lastUpdateMillis = 2L))
+            assertEquals(120.0, resume(), 0.001)
+        }
+
+    @Test
+    fun `resumes from a more recent server position behind an older queued one`() =
+        runTest {
+            store.put("lib-1", "book-1", at(600.0))
+            repository.fetchProgressResult = DomainResult.Success(at(200.0, lastUpdateMillis = 2L))
+            assertEquals(200.0, resume(), 0.001)
+        }
+
+    @Test
+    fun `a tie with the server's update resumes from the server's`() =
+        runTest {
+            store.put("lib-1", "book-1", at(600.0))
+            repository.fetchProgressResult = DomainResult.Success(at(120.0, lastUpdateMillis = 1L))
             assertEquals(120.0, resume(), 0.001)
         }
 
@@ -90,5 +106,8 @@ class ResolveResumePositionUseCaseTest {
     private suspend fun resume(hint: Double? = null): Double =
         useCase("https://example.com", "token", testAudiobook().copy(progressSeconds = hint))
 
-    private fun at(seconds: Double) = PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false)
+    private fun at(
+        seconds: Double,
+        lastUpdateMillis: Long = 0L,
+    ) = PlaybackProgress(seconds, durationSeconds = 300.0, isFinished = false, lastUpdateMillis = lastUpdateMillis)
 }

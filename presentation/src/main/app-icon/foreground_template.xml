@@ -1,42 +1,66 @@
+<!--
+    The Folded A that every launcher icon is drawn from: one path per facet, then the low-opacity
+    surface tones, which every palette shares. Each facet takes its color from the palette:
+    @color/app_icon_{icon}_<facet> in res/values/app_icon_palettes.xml.
+
+    This file is not a resource. At build time, GenerateAppIconsTask (build.gradle.kts) writes one
+    copy per palette, with {icon} replaced by the palette's name: @drawable/app_icon_<icon>_foreground,
+    used by the adaptive icon @mipmap/app_icon_<icon>.
+
+    Traced from the approved Folded A artwork (viewBox 64 64 352 352, moved to the origin) and
+    scaled into the adaptive icon safe zone by the group transform.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="352"
     android:viewportHeight="352">
-  <group android:scaleX="0.462"
+  <group
+      android:name="folded_a"
+      android:scaleX="0.462"
       android:scaleY="0.462"
       android:translateX="94.688"
       android:translateY="93.93511">
     <path
+        android:name="seam_underlay"
         android:pathData="M136.05,22.6h81.63l121.47,309.5h-84.6l-25.27,-66.65 -29.43,-24.71 -75.69,32.09 -23.61,59.27L14.92,332.1ZM176.7,127.8 L149.91,199.43 200.2,187.45Z"
-        android:fillColor="@color/ic_palette_ocean"
+        android:fillColor="@color/app_icon_{icon}_seam_underlay"
         android:fillType="evenOdd"/>
     <path
+        android:name="left_stem"
         android:pathData="m136.05,22.6 l40.65,105.2 -26.79,71.63L14.92,332.1Z"
-        android:fillColor="@color/ic_palette_forest"/>
+        android:fillColor="@color/app_icon_{icon}_left_stem"/>
     <path
+        android:name="top_fold"
         android:pathData="M136.05,22.6h81.63L176.7,127.8Z"
-        android:fillColor="@color/ic_palette_sage"/>
+        android:fillColor="@color/app_icon_{icon}_top_fold"/>
     <path
+        android:name="right_stem"
         android:pathData="m217.68,22.6 l91.78,233.86 -109.26,-69.01 -23.5,-59.65Z"
-        android:fillColor="@color/ic_palette_sky"/>
+        android:fillColor="@color/app_icon_{icon}_right_stem"/>
     <path
+        android:name="left_foot"
         android:pathData="m14.92,332.1 l109.24,-59.27 -23.61,59.27Z"
-        android:fillColor="@color/ic_palette_mint"/>
+        android:fillColor="@color/app_icon_{icon}_left_foot"/>
     <path
+        android:name="left_diagonal_fold"
         android:pathData="m14.92,332.1 l134.99,-132.67 -25.75,73.4Z"
-        android:fillColor="@color/ic_palette_leaf"/>
+        android:fillColor="@color/app_icon_{icon}_left_diagonal_fold"/>
     <path
+        android:name="tucked_center_fold"
         android:pathData="m149.91,199.43 l49.94,41.31 -75.69,32.09Z"
-        android:fillColor="@color/ic_palette_deep_ocean"/>
+        android:fillColor="@color/app_icon_{icon}_tucked_center_fold"/>
     <path
+        android:name="right_foot"
         android:pathData="m229.28,265.45 l109.87,66.65h-84.6Z"
-        android:fillColor="@color/ic_palette_ice"/>
+        android:fillColor="@color/app_icon_{icon}_right_foot"/>
     <path
+        android:name="diagonal_cross_fold"
         android:pathData="m149.91,199.43 l50.29,-11.98 109.26,69.01 29.69,75.64 -109.87,-66.65 -29.43,-24.71Z"
-        android:fillColor="@color/ic_palette_ocean"/>
+        android:fillColor="@color/app_icon_{icon}_diagonal_cross_fold"/>
     <path
+        android:name="left_stem_surface_tone"
         android:pathData="m136.05,22.6 l40.65,105.2 -26.79,71.63L14.92,332.1Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -45,12 +69,13 @@
             android:endX="9.53"
             android:endY="172.72"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_04"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#0A000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="top_fold_surface_tone"
         android:pathData="M136.05,22.6h81.63L176.7,127.8Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -59,12 +84,13 @@
             android:endX="133.46"
             android:endY="26.44"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_06"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#0F000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="right_stem_surface_tone"
         android:pathData="m217.68,22.6 l91.78,233.86 -109.26,-69.01 -23.5,-59.65Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -73,12 +99,13 @@
             android:endX="175.46"
             android:endY="122.75"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_02"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#04000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="left_foot_surface_tone"
         android:pathData="m14.92,332.1 l109.24,-59.27 -23.61,59.27Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -87,12 +114,13 @@
             android:endX="89.19"
             android:endY="335.39"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_13"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#20000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="left_diagonal_fold_surface_tone"
         android:pathData="m14.92,332.1 l134.99,-132.67 -25.75,73.4Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -101,12 +129,13 @@
             android:endX="92.02"
             android:endY="254.84"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_01"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#02000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="tucked_center_fold_surface_tone"
         android:pathData="m149.91,199.43 l49.94,41.31 -75.69,32.09Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -115,12 +144,13 @@
             android:endX="117.59"
             android:endY="262.19"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_18"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#2D000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="right_foot_surface_tone"
         android:pathData="m229.28,265.45 l109.87,66.65h-84.6Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -129,12 +159,13 @@
             android:endX="260.46"
             android:endY="334.97"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_11"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#1B000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="diagonal_cross_fold_surface_tone"
         android:pathData="m149.91,199.43 l50.29,-11.98 109.26,69.01 29.69,75.64 -109.87,-66.65 -29.43,-24.71Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -143,12 +174,13 @@
             android:endX="233.25"
             android:endY="268.69"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_01_alt"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#03000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="left_stem_crease_tone"
         android:pathData="m136.05,22.6 l40.65,105.2 -26.79,71.63L14.92,332.1Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -157,12 +189,13 @@
             android:endX="128.59"
             android:endY="25.48"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_12"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#1D000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>
     <path
+        android:name="tucked_center_fold_crease_tone"
         android:pathData="m149.91,199.43 l49.94,41.31 -75.69,32.09Z">
       <aapt:attr name="android:fillColor">
         <gradient
@@ -171,8 +204,8 @@
             android:endX="143.85"
             android:endY="206.75"
             android:type="linear">
-          <item android:offset="0" android:color="@color/ic_palette_shadow_16"/>
-          <item android:offset="1" android:color="@color/ic_palette_transparent"/>
+          <item android:offset="0" android:color="#28000000"/>
+          <item android:offset="1" android:color="#00000000"/>
         </gradient>
       </aapt:attr>
     </path>

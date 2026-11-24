@@ -7,9 +7,11 @@ Current implementation snapshot:
 - Foundation hardening is largely complete.
 - Catalog expansion is in progress.
 - The app supports audiobook detail via an overlay (glance mode) and chapter loading from the server, cached in Room.
-- Real audio playback is implemented with Media3 (ExoPlayer + MediaSession) in the `:playback` module, including background playback, a media notification, progress sync/resume (offline progress queues and syncs in the background once online, furthest along winning), chapter navigation, and speed control. Downloaded tracks play from the device.
+- Real audio playback is implemented with Media3 (ExoPlayer + MediaSession) in the `:playback` module, including background playback, a media notification, progress sync/resume (offline progress queues and syncs in the background once online, most recently updated winning), chapter navigation, and speed control. Downloaded tracks play from the device.
 - Logout runs a single ordered flow (`LogoutUserUseCase`): stops playback, clears the session, wipes catalog/cover caches and downloads; the remembered server URL and all app settings survive.
 - Continue Listening shows per-book time left at 1x, hydrated from the server progress API, and follows playback live (every progress save records it locally first, offline too).
+- The library syncs on its own once a day (pull to refresh any time); a status chip on the Library tab shows how fresh it is and opens an offline mode switch that makes the app act as if there were no network.
+- The app icon is switchable in Settings > Appearance (Forest or Island, light or dark). Every icon is generated at build time from one vector of the A, and the launcher switches to the chosen one when the app goes to the background.
 - Still not implemented: queue UI, filtering, Android Auto, and Wear OS.
 
 Files in this directory:

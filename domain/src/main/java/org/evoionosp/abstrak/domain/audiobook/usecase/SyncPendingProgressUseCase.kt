@@ -62,7 +62,7 @@ class SyncPendingProgressUseCase
                     is DomainResult.Success -> result.data
                     is DomainResult.Failure -> return result.error.toSyncResult()
                 }
-            if (server != null && !ProgressMerge.isDeviceAhead(pending.progress, server)) {
+            if (server != null && !ProgressMerge.isDeviceNewer(pending.progress, server)) {
                 if (pendingProgressStore.remove(pending)) {
                     audiobookRepository.recordListeningProgress(
                         libraryId = pending.libraryId,

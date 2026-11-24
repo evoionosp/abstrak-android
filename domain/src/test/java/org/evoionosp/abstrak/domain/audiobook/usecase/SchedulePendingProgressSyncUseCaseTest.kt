@@ -22,6 +22,17 @@ class SchedulePendingProgressSyncUseCaseTest {
     fun `asks for nothing when nothing is queued`() =
         runTest {
             SchedulePendingProgressSyncUseCase(store, scheduler)()
+            SchedulePendingProgressSyncUseCase(store, scheduler)(immediately = true)
+            assertEquals(0, scheduler.scheduleCount)
+            assertEquals(0, scheduler.scheduleNowCount)
+        }
+
+    @Test
+    fun `an immediate sync replaces the pending one instead of keeping it`() =
+        runTest {
+            store.put("lib-1", "book-1", PlaybackProgress(60.0, durationSeconds = 300.0, isFinished = false))
+            SchedulePendingProgressSyncUseCase(store, scheduler)(immediately = true)
+            assertEquals(1, scheduler.scheduleNowCount)
             assertEquals(0, scheduler.scheduleCount)
         }
 }

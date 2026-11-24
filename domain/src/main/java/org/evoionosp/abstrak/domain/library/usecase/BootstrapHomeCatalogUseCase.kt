@@ -2,6 +2,7 @@ package org.evoionosp.abstrak.domain.library.usecase
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import org.evoionosp.abstrak.domain.audiobook.repository.AudiobookRepository
+import org.evoionosp.abstrak.domain.library.model.AudiobookLibrary
 import org.evoionosp.abstrak.domain.library.model.BootstrapHomeCatalogResult
 import org.evoionosp.abstrak.domain.library.model.CatalogError
 import org.evoionosp.abstrak.domain.library.model.DomainResult
@@ -13,10 +14,22 @@ class BootstrapHomeCatalogUseCase
         private val libraryRepository: LibraryRepository,
         private val audiobookRepository: AudiobookRepository,
     ) {
+        /**
+         * Gets the home catalog ready for startup. A library that has synced before opens as it is,
+         * without waiting on the server: the daily library sync and the Continue Listening refresh
+         * run in the background. Only a first start (or one after a failed first sync) loads from
+         * the server here.
+         */
         suspend operator fun invoke(
             baseUrl: String,
             accessToken: String,
         ): BootstrapHomeCatalogResult {
+            val cachedSelection =
+                libraryRepository.observeSelectedLibrary().first()
+                    ?: libraryRepository.observeLibraries().first().firstOrNull()
+            if (cachedSelection != null && hasSynced(cachedSelection.id)) {
+                return openCached(cachedSelection)
+            }
             val libraryRefreshResult =
                 libraryRepository.refreshLibraries(
                     baseUrl = baseUrl,
@@ -81,6 +94,19 @@ class BootstrapHomeCatalogUseCase
                     }
                 }
             }
+        }
+
+        private suspend fun hasSynced(libraryId: String): Boolean =
+            audiobookRepository.observeLibrarySyncStatus(libraryId).first().lastSyncedAtMillis != null
+
+        private suspend fun openCached(library: AudiobookLibrary): BootstrapHomeCatalogResult {
+            if (!library.isSelected) {
+                val selectionResult = libraryRepository.selectLibrary(library.id)
+                if (selectionResult is DomainResult.Failure) {
+                    return BootstrapHomeCatalogResult.Failure(selectionResult.error)
+                }
+            }
+            return BootstrapHomeCatalogResult.Success(selectedLibraryId = library.id, usedCachedData = true)
         }
 
         private fun DomainResult<Unit>.isAuthFailure(): Boolean =

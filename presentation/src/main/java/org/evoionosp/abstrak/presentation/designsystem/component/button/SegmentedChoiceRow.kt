@@ -1,4 +1,6 @@
 package org.evoionosp.abstrak.presentation.designsystem.component.button
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonColors
@@ -8,7 +10,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 
+/**
+ * A pill of mutually exclusive options. [icon], when given, leads each option's label in every
+ * state; the label already names the option, so the icon has no content description.
+ */
 @Composable
 fun <T> SegmentedChoiceRow(
     options: List<T>,
@@ -16,6 +23,7 @@ fun <T> SegmentedChoiceRow(
     onSelect: (T) -> Unit,
     label: (T) -> String,
     modifier: Modifier = Modifier,
+    icon: ((T) -> ImageVector)? = null,
     enabled: Boolean = true,
     colors: SegmentedButtonColors = SegmentedChoiceDefaults.colors(),
 ) {
@@ -28,7 +36,15 @@ fun <T> SegmentedChoiceRow(
                 enabled = enabled,
                 label = { Text(text = label(option)) },
                 colors = colors,
-                icon = {},
+                icon = {
+                    if (icon != null) {
+                        Icon(
+                            imageVector = icon(option),
+                            contentDescription = null,
+                            modifier = Modifier.size(SegmentedButtonDefaults.IconSize),
+                        )
+                    }
+                },
             )
         }
     }

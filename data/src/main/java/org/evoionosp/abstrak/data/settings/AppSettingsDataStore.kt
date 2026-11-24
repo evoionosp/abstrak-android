@@ -11,6 +11,7 @@ import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import org.evoionosp.abstrak.domain.settings.AppIcon
 import org.evoionosp.abstrak.domain.settings.AppSettings
 import org.evoionosp.abstrak.domain.settings.AppSettingsStore
 
@@ -28,6 +29,8 @@ class AppSettingsDataStore(
         val searchAllLibraries = booleanPreferencesKey("search_all_libraries")
         val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
         val autoDeleteFinishedDownloads = booleanPreferencesKey("auto_delete_finished_downloads")
+        val useOfflineMode = booleanPreferencesKey("use_offline_mode")
+        val appIcon = stringPreferencesKey("app_icon")
     }
 
     override val settings: Flow<AppSettings> =
@@ -93,6 +96,18 @@ class AppSettingsDataStore(
         }
     }
 
+    override suspend fun setOfflineMode(enabled: Boolean) {
+        context.appSettingsDataStore.edit { preferences ->
+            preferences[Keys.useOfflineMode] = enabled
+        }
+    }
+
+    override suspend fun setAppIcon(icon: AppIcon) {
+        context.appSettingsDataStore.edit { preferences ->
+            preferences[Keys.appIcon] = icon.name
+        }
+    }
+
     private fun toAppSettings(preferences: Preferences): AppSettings =
         AppSettings(
             themePreference =
@@ -110,5 +125,7 @@ class AppSettingsDataStore(
             searchAllLibraries = preferences[Keys.searchAllLibraries] ?: true,
             downloadWifiOnly = preferences[Keys.downloadWifiOnly] ?: false,
             autoDeleteFinishedDownloads = preferences[Keys.autoDeleteFinishedDownloads] ?: false,
+            useOfflineMode = preferences[Keys.useOfflineMode] ?: false,
+            appIcon = AppIcon.fromName(preferences[Keys.appIcon]),
         )
 }

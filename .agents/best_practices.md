@@ -35,6 +35,7 @@
 - Use stale-while-revalidate behavior where it fits the product: show cached data quickly, then refresh in background.
 - Keep sync metadata explicit: last synced, stale state, failure reason, retry policy.
 - Separate catalog sync from media download sync.
+- Gate automatic catalog syncs on `LibrarySyncPolicy` through `SyncLibraryBooksUseCase` (due once a day, one sync at a time); only an explicit user refresh forces one. Check connectivity through `ConnectivityObserver`, never the device network directly, so offline mode applies.
 - Main-safe suspend functions are required in data and domain APIs.
 - Prefer `Flow` for observable data changes and `suspend` functions for one-shot operations.
 
@@ -49,7 +50,7 @@
 
 - Build playback around Media3, not UI-specific abstractions.
 - Build download orchestration as durable background work.
-- Never drop a server write that failed offline: queue it locally and deliver it from WorkManager (see `SavePlaybackProgressUseCase` and `SyncPendingProgressUseCase`). When the device and server disagree about where a book is, merge with `ProgressMerge` (furthest along wins) instead of overwriting either side.
+- Never drop a server write that failed offline: queue it locally and deliver it from WorkManager (see `SavePlaybackProgressUseCase` and `SyncPendingProgressUseCase`). When the device and server disagree about where a book is, merge with `ProgressMerge` (most recently updated wins by each record's own lastUpdate, which every save sends; a tie keeps the server's) instead of overwriting either side.
 - Persist playback position and queue state centrally.
 - Treat local/offline media as first-class data, not a later patch.
 
@@ -92,6 +93,11 @@
 - Strings come from resources, with plurals for counts.
 - Every actionable icon has a content description, and custom clickables declare a `Role`.
 - An image next to a visible title gets a `null` content description, so TalkBack doesn't read the title twice.
+
+### App icons
+
+- Every launcher icon is generated from one vector. Change the A in `src/main/app-icon/foreground_template.xml` and the colors in `res/values/app_icon_palettes.xml`, never the generated `app_icon_*` drawables. A new icon also needs an `AppIcon` entry and its `activity-alias` in the presentation manifest.
+- Drawables and mipmaps are vectors only; `VectorOnlyIconsTest` fails on a raster image.
 
 ### Previews
 

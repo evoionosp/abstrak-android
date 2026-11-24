@@ -18,11 +18,17 @@ class ResolveResumePositionUseCase
             accessToken: String,
             audiobook: Audiobook,
         ): Double {
-            val queued = pendingProgressStore.get(audiobook.id)?.progress
+            val queued = pendingProgressStore.get(audiobook.id)
             val progress =
                 when (val result = audiobookRepository.fetchProgress(baseUrl, accessToken, audiobook.id)) {
-                    is DomainResult.Success -> ProgressMerge.furthest(queued, result.data) ?: return 0.0
-                    is DomainResult.Failure -> queued ?: return recordedPosition(audiobook)
+                    is DomainResult.Success -> {
+                        ProgressMerge.newest(queued?.progress, result.data)
+                            ?: return 0.0
+                    }
+
+                    is DomainResult.Failure -> {
+                        queued?.progress ?: return recordedPosition(audiobook)
+                    }
                 }
             return progress.resumeSeconds ?: 0.0
         }

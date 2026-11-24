@@ -10,6 +10,8 @@ data class MediaProgressDto(
     val progress: Double? = null,
     @SerializedName("isFinished")
     val isFinished: Boolean? = null,
+    @SerializedName("lastUpdate")
+    val lastUpdate: Long? = null,
 )
 
 data class UpdateProgressRequestDto(
@@ -21,4 +23,11 @@ data class UpdateProgressRequestDto(
     val progress: Double,
     @SerializedName("isFinished")
     val isFinished: Boolean,
+    /**
+     * When the position was recorded on this device, Unix epoch milliseconds. Audiobookshelf
+     * keeps it as the progress lastUpdate instead of the time the request arrives; null (Gson
+     * omits it) lets the server stamp its own time.
+     */
+    @SerializedName("lastUpdate")
+    val lastUpdate: Long? = null,
 )

@@ -19,4 +19,8 @@ interface AppSettingsStore {
     suspend fun setDownloadWifiOnly(enabled: Boolean)
 
     suspend fun setAutoDeleteFinishedDownloads(enabled: Boolean)
+
+    suspend fun setOfflineMode(enabled: Boolean)
+
+    suspend fun setAppIcon(icon: AppIcon)
 }

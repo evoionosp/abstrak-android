@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import org.evoionosp.abstrak.domain.auth.model.AuthError
 import org.evoionosp.abstrak.domain.auth.model.LoginResult
 import org.evoionosp.abstrak.domain.auth.usecase.LoginUseCase
+import org.evoionosp.abstrak.domain.server.ServerUrlValidator
 import org.evoionosp.abstrak.domain.server.model.ServerCheckResult
 import org.evoionosp.abstrak.domain.server.model.ServerError
 import org.evoionosp.abstrak.domain.server.usecase.ServerHealthCheckUseCase
@@ -31,6 +32,7 @@ class AuthViewModel
         private val loginUseCase: LoginUseCase,
         private val saveSessionUseCase: SaveSessionUseCase,
         private val observeLastServerUrlUseCase: ObserveLastServerUrlUseCase,
+        private val serverUrlValidator: ServerUrlValidator,
         private val snackbar: SnackbarController,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(AuthUiState())
@@ -45,14 +47,14 @@ class AuthViewModel
                     if (state.baseUrl.isNotBlank()) {
                         state
                     } else {
-                        state.copy(protocol = protocol, baseUrl = host)
+                        state.copy(protocol = protocol, baseUrl = host).withUrlValidity()
                     }
                 }
             }
         }
 
         fun onProtocolChange(value: String) {
-            _uiState.update { it.copy(protocol = value) }
+            _uiState.update { it.copy(protocol = value).withUrlValidity() }
         }
 
         fun onBaseUrlChange(value: String) {
@@ -65,15 +67,19 @@ class AuthViewModel
                             ignoreCase = true,
                         ) -> splitProtocol(trimmedValue)
 
-                    else -> _uiState.value.protocol to value
+                    else -> _uiState.value.protocol to trimmedValue
                 }
             _uiState.update {
-                it.copy(
-                    protocol = newProtocol,
-                    baseUrl = newBaseUrl,
-                )
+                it
+                    .copy(
+                        protocol = newProtocol,
+                        baseUrl = newBaseUrl,
+                    ).withUrlValidity()
             }
         }
+
+        private fun AuthUiState.withUrlValidity(): AuthUiState =
+            copy(isBaseUrlValid = serverUrlValidator.isValidServerUrl(protocol + baseUrl))
 
         private fun splitProtocol(url: String): Pair<String, String> {
             val trimmed = url.trim()
@@ -104,8 +110,12 @@ class AuthViewModel
 
         fun checkLoginSetup() {
             val baseUrl = getBaseUrl()
-            if (baseUrl.isBlank()) {
+            if (_uiState.value.baseUrl.isBlank()) {
                 setLoginSetupError(R.string.error_server_url_required)
+                return
+            }
+            if (!serverUrlValidator.isValidServerUrl(baseUrl)) {
+                setLoginSetupError(R.string.error_invalid_base_url)
                 return
             }
             viewModelScope.launch {

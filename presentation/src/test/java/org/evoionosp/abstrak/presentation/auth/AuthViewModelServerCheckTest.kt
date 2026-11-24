@@ -15,6 +15,7 @@ import org.evoionosp.abstrak.domain.auth.model.LoginData
 import org.evoionosp.abstrak.domain.auth.model.LoginResult
 import org.evoionosp.abstrak.domain.auth.repository.AuthRepository
 import org.evoionosp.abstrak.domain.auth.usecase.LoginUseCase
+import org.evoionosp.abstrak.domain.server.ServerUrlValidator
 import org.evoionosp.abstrak.domain.server.model.ServerCheckResult
 import org.evoionosp.abstrak.domain.server.model.ServerError
 import org.evoionosp.abstrak.domain.server.model.ServerStatus
@@ -69,6 +70,114 @@ class AuthViewModelServerCheckTest {
         }
 
     @Test
+    fun `connect stays disabled while the server url is empty`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(pingResult = ServerCheckResult.Failure(ServerError.UNKNOWN))
+            advanceUntilIdle()
+            assertEquals(false, viewModel.uiState.value.isConnectEnabled)
+            viewModel.onBaseUrlChange("")
+            assertEquals(false, viewModel.uiState.value.isConnectEnabled)
+            viewModel.onBaseUrlChange("   ")
+            assertEquals(false, viewModel.uiState.value.isConnectEnabled)
+        }
+
+    @Test
+    fun `connect enables for an ip address, a host, and a full url`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(pingResult = ServerCheckResult.Failure(ServerError.UNKNOWN))
+            advanceUntilIdle()
+            viewModel.onBaseUrlChange("192.168.1.10:13378")
+            assertEquals(true, viewModel.uiState.value.isConnectEnabled)
+            viewModel.onBaseUrlChange("audiobooks.evoionosp.com:13378")
+            assertEquals(true, viewModel.uiState.value.isConnectEnabled)
+            viewModel.onBaseUrlChange("http://192.168.1.10:13378")
+            assertEquals(true, viewModel.uiState.value.isConnectEnabled)
+            assertEquals("http://", viewModel.uiState.value.protocol)
+            assertEquals("192.168.1.10:13378", viewModel.uiState.value.baseUrl)
+        }
+
+    @Test
+    fun `a malformed server url disables connect and says why under the field`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(pingResult = ServerCheckResult.Failure(ServerError.UNKNOWN))
+            advanceUntilIdle()
+            viewModel.onBaseUrlChange("example.com:99999")
+            assertEquals(false, viewModel.uiState.value.isConnectEnabled)
+            assertEquals(true, viewModel.uiState.value.showInvalidBaseUrl)
+        }
+
+    @Test
+    fun `an empty server url says nothing under the field`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(pingResult = ServerCheckResult.Failure(ServerError.UNKNOWN))
+            advanceUntilIdle()
+            assertEquals(false, viewModel.uiState.value.showInvalidBaseUrl)
+            viewModel.onBaseUrlChange("   ")
+            assertEquals(false, viewModel.uiState.value.showInvalidBaseUrl)
+        }
+
+    @Test
+    fun `a server url pasted with surrounding spaces is trimmed and can connect`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(pingResult = ServerCheckResult.Failure(ServerError.UNKNOWN))
+            advanceUntilIdle()
+            viewModel.onBaseUrlChange(" audiobooks.evoionosp.com ")
+            assertEquals("audiobooks.evoionosp.com", viewModel.uiState.value.baseUrl)
+            assertEquals(true, viewModel.uiState.value.isConnectEnabled)
+            assertEquals(false, viewModel.uiState.value.showInvalidBaseUrl)
+        }
+
+    @Test
+    fun `changing the protocol checks the server url again`() =
+        runTest(dispatcher) {
+            val viewModel = viewModel(pingResult = ServerCheckResult.Failure(ServerError.UNKNOWN))
+            advanceUntilIdle()
+            viewModel.onBaseUrlChange("audiobooks.evoionosp.com")
+            assertEquals(true, viewModel.uiState.value.isConnectEnabled)
+            viewModel.onProtocolChange("http://")
+            assertEquals(false, viewModel.uiState.value.isConnectEnabled)
+        }
+
+    @Test
+    fun `checking with an empty url shows the required error without pinging`() =
+        runTest(dispatcher) {
+            val serverRepository = ServerCheckFakeServerRepository(ServerCheckResult.Failure(ServerError.UNKNOWN))
+            val viewModel = viewModel(serverRepository)
+            advanceUntilIdle()
+            val messages = mutableListOf<SnackbarMessage>()
+            val collection = launch { snackbar.messages.collect { messages.add(it) } }
+            viewModel.checkLoginSetup()
+            advanceUntilIdle()
+            collection.cancel()
+            advanceUntilIdle()
+            assertEquals(
+                listOf(SnackbarMessage(UiText.Resource(R.string.error_server_url_required), SnackbarType.ERROR)),
+                messages,
+            )
+            assertEquals(0, serverRepository.pingCalls)
+        }
+
+    @Test
+    fun `checking with a malformed url shows the invalid url error without pinging`() =
+        runTest(dispatcher) {
+            val serverRepository = ServerCheckFakeServerRepository(ServerCheckResult.Failure(ServerError.UNKNOWN))
+            val viewModel = viewModel(serverRepository)
+            advanceUntilIdle()
+            val messages = mutableListOf<SnackbarMessage>()
+            val collection = launch { snackbar.messages.collect { messages.add(it) } }
+            viewModel.onBaseUrlChange("example.com:99999")
+            viewModel.checkLoginSetup()
+            advanceUntilIdle()
+            collection.cancel()
+            advanceUntilIdle()
+            assertEquals(
+                listOf(SnackbarMessage(UiText.Resource(R.string.error_invalid_base_url), SnackbarType.ERROR)),
+                messages,
+            )
+            assertEquals(0, serverRepository.pingCalls)
+        }
+
+    @Test
     fun `successful login keeps progress visible and shows no message`() =
         runTest(dispatcher) {
             val viewModel =
@@ -119,9 +228,13 @@ class AuthViewModelServerCheckTest {
     private fun viewModel(
         pingResult: ServerCheckResult<Boolean>,
         loginResult: LoginResult = LoginResult.Failure(AuthError.UNEXPECTED),
+    ): AuthViewModel = viewModel(ServerCheckFakeServerRepository(pingResult), loginResult)
+
+    private fun viewModel(
+        serverRepository: ServerRepository,
+        loginResult: LoginResult = LoginResult.Failure(AuthError.UNEXPECTED),
     ): AuthViewModel {
         val sessionStore = ServerCheckFakeSessionStore()
-        val serverRepository = ServerCheckFakeServerRepository(pingResult)
         val authRepository = ServerCheckFakeAuthRepository(loginResult)
         return AuthViewModel(
             serverPingUseCase = ServerPingUseCase(serverRepository),
@@ -129,10 +242,20 @@ class AuthViewModelServerCheckTest {
             loginUseCase = LoginUseCase(authRepository),
             saveSessionUseCase = SaveSessionUseCase(sessionStore),
             observeLastServerUrlUseCase = ObserveLastServerUrlUseCase(sessionStore),
+            serverUrlValidator = ServerUrlValidator { it in VALID_URLS },
             snackbar = snackbar,
         )
     }
 }
+
+/** What the validator accepts in these tests; URL parsing itself is tested in the data layer. */
+private val VALID_URLS =
+    setOf(
+        "https://audiobooks.evoionosp.com",
+        "https://audiobooks.evoionosp.com:13378",
+        "https://192.168.1.10:13378",
+        "http://192.168.1.10:13378",
+    )
 
 private class ServerCheckFakeSessionStore : SessionStore {
     private val sessionFlow = MutableStateFlow<LoginSession?>(null)
@@ -154,7 +277,12 @@ private class ServerCheckFakeSessionStore : SessionStore {
 private class ServerCheckFakeServerRepository(
     private val pingResult: ServerCheckResult<Boolean>,
 ) : ServerRepository {
-    override suspend fun ping(baseUrl: String): ServerCheckResult<Boolean> = pingResult
+    var pingCalls = 0
+
+    override suspend fun ping(baseUrl: String): ServerCheckResult<Boolean> {
+        pingCalls += 1
+        return pingResult
+    }
 
     override suspend fun getStatus(baseUrl: String): ServerCheckResult<ServerStatus> = ServerCheckResult.Failure(ServerError.UNKNOWN)
 

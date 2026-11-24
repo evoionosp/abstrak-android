@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import org.evoionosp.abstrak.data.connectivity.OfflineModeState
 import org.evoionosp.abstrak.domain.connection.ConnectionSettingsStore
 import org.evoionosp.abstrak.domain.connection.model.ConnectionSettings
 
@@ -24,6 +25,7 @@ class ManagedOkHttpClients
         @ApplicationContext private val context: Context,
         private val connectionSettingsStore: ConnectionSettingsStore,
         private val tokenAuthenticator: Lazy<TokenAuthenticator>,
+        private val offlineModeState: OfflineModeState,
         @param:Named("io") ioDispatcher: CoroutineDispatcher,
     ) {
         private data class ClientPair(
@@ -68,6 +70,7 @@ class ManagedOkHttpClients
                             connectionSettingsStore = connectionSettingsStore,
                             context = context,
                             settings = settings,
+                            isOfflineMode = offlineModeState::awaitIsEnabled,
                         ),
                     auth =
                         OkHttpProvider.create(
@@ -75,6 +78,7 @@ class ManagedOkHttpClients
                             connectionSettingsStore = connectionSettingsStore,
                             context = context,
                             settings = settings,
+                            isOfflineMode = offlineModeState::awaitIsEnabled,
                         ),
                 )
             current = pair

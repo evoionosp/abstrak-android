@@ -24,6 +24,7 @@ import org.evoionosp.abstrak.domain.library.repository.LibraryRepository
 import org.evoionosp.abstrak.domain.server.model.ServerCheckResult
 import org.evoionosp.abstrak.domain.server.model.ServerStatus
 import org.evoionosp.abstrak.domain.server.repository.ServerRepository
+import org.evoionosp.abstrak.domain.settings.AppIcon
 import org.evoionosp.abstrak.domain.settings.AppSettings
 import org.evoionosp.abstrak.domain.settings.AppSettingsStore
 
@@ -79,6 +80,7 @@ class FakeAudiobookRepository(
     val allBooksFlow = MutableStateFlow<List<Audiobook>>(emptyList())
     var continueListening: List<Audiobook> = emptyList()
     var syncStatus: SyncStatus = SyncStatus.Idle
+    val syncStatusByLibrary = mutableMapOf<String, SyncStatus>()
     val refreshedBookLibraries = mutableListOf<String>()
     val refreshedContinueLibraries = mutableListOf<String>()
     val refreshedDetails = mutableListOf<Pair<String, String>>()
@@ -134,7 +136,8 @@ class FakeAudiobookRepository(
         return refreshDetailResult
     }
 
-    override fun observeLibrarySyncStatus(libraryId: String): Flow<SyncStatus> = MutableStateFlow(syncStatus)
+    override fun observeLibrarySyncStatus(libraryId: String): Flow<SyncStatus> =
+        MutableStateFlow(syncStatusByLibrary[libraryId] ?: syncStatus)
 
     override suspend fun refreshAudiobooks(
         baseUrl: String,
@@ -185,18 +188,23 @@ class FakeAudiobookRepository(
     }
 }
 
+/**
+ * Keeps the time each progress carries, as the real store does. Progress with no time gets the
+ * next tick of a counter starting at 1, standing in for the real store's current-time fallback.
+ */
 class FakePendingProgressStore : PendingProgressStore {
     private val rows = LinkedHashMap<String, PendingProgress>()
-    private var lastSavedAtMillis = 0L
+    private var lastTick = 0L
     var beforeRemove: (suspend (PendingProgress) -> Unit)? = null
-    val queued: List<PendingProgress> get() = rows.values.sortedBy { it.savedAtMillis }
+    val queued: List<PendingProgress> get() = rows.values.sortedBy { it.progress.lastUpdateMillis }
 
     override suspend fun put(
         libraryId: String,
         audiobookId: String,
         progress: PlaybackProgress,
     ) {
-        rows[audiobookId] = PendingProgress(libraryId, audiobookId, progress, ++lastSavedAtMillis)
+        val dated = if (progress.lastUpdateMillis > 0L) progress else progress.copy(lastUpdateMillis = ++lastTick)
+        rows[audiobookId] = PendingProgress(libraryId, audiobookId, dated)
     }
 
     override suspend fun get(audiobookId: String): PendingProgress? = rows[audiobookId]
@@ -214,9 +222,15 @@ class FakePendingProgressStore : PendingProgressStore {
 class FakeProgressSyncScheduler : ProgressSyncScheduler {
     var scheduleCount = 0
         private set
+    var scheduleNowCount = 0
+        private set
 
     override fun schedule() {
         scheduleCount++
+    }
+
+    override fun scheduleNow() {
+        scheduleNowCount++
     }
 }
 
@@ -313,6 +327,19 @@ class FakeDownloadRepository : DownloadRepository {
     override suspend fun reconcileStorage() {
         reconcileCount++
     }
+
+    var pauseCount = 0
+        private set
+    var resumeCount = 0
+        private set
+
+    override suspend fun pauseDownloads() {
+        pauseCount++
+    }
+
+    override suspend fun resumeDownloads() {
+        resumeCount++
+    }
 }
 
 class FakeAppSettingsStore(
@@ -351,6 +378,14 @@ class FakeAppSettingsStore(
 
     override suspend fun setAutoDeleteFinishedDownloads(enabled: Boolean) {
         state.value = state.value.copy(autoDeleteFinishedDownloads = enabled)
+    }
+
+    override suspend fun setOfflineMode(enabled: Boolean) {
+        state.value = state.value.copy(useOfflineMode = enabled)
+    }
+
+    override suspend fun setAppIcon(icon: AppIcon) {
+        state.value = state.value.copy(appIcon = icon)
     }
 }
 

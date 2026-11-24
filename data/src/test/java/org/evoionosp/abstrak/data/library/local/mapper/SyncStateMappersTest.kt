@@ -12,10 +12,14 @@ class SyncStateMappersTest {
     }
 
     @Test
-    fun `syncing maps to syncing`() {
+    fun `syncing maps to syncing, keeping the last synced time`() {
         assertEquals(
-            SyncStatus.Syncing,
+            SyncStatus.Syncing(lastSyncedAtMillis = null),
             state(status = "SYNCING").toDomain(),
+        )
+        assertEquals(
+            SyncStatus.Syncing(lastSyncedAtMillis = 42L),
+            state(status = "SYNCING", lastSyncedAtMillis = 42L).toDomain(),
         )
     }
 
@@ -56,6 +60,14 @@ class SyncStateMappersTest {
         assertEquals(
             SyncStatus.Failed(CatalogError.UNKNOWN),
             state(status = "FAILED", error = null).toDomain(),
+        )
+    }
+
+    @Test
+    fun `failed keeps the last synced time of a library that has synced before`() {
+        assertEquals(
+            SyncStatus.Failed(CatalogError.NETWORK, lastSyncedAtMillis = 9L),
+            state(status = "FAILED", lastSyncedAtMillis = 9L, error = "NETWORK").toDomain(),
         )
     }
 

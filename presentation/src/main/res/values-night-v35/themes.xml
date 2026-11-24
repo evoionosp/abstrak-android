@@ -1,8 +1,8 @@
 <resources>
     <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar" />
     <style name="AppTheme.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenBackground">@color/splash_screen_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/app_icon_island_light</item>
         <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
 </resources>

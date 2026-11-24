@@ -9,6 +9,10 @@ data class AppSettings(
     val searchAllLibraries: Boolean = true,
     val downloadWifiOnly: Boolean = false,
     val autoDeleteFinishedDownloads: Boolean = false,
+    /** Act as if there were no network, even when there is: nothing is sent to the server. */
+    val useOfflineMode: Boolean = false,
+    /** The launcher icon; the home screen shows it once the app goes to the background. */
+    val appIcon: AppIcon = AppIcon.DEFAULT,
 ) {
     companion object {
         const val DEFAULT_THEME_PREFERENCE = "SYSTEM"

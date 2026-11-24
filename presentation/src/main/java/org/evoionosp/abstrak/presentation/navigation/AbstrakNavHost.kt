@@ -13,11 +13,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import org.evoionosp.abstrak.presentation.auth.AuthRoute
 import org.evoionosp.abstrak.presentation.bookdetails.BookDetailsRoute
-import org.evoionosp.abstrak.presentation.designsystem.theme.ThemePreference
 import org.evoionosp.abstrak.presentation.downloads.DownloadsRoute
 import org.evoionosp.abstrak.presentation.home.HomeRoute
 import org.evoionosp.abstrak.presentation.library.LibraryRoute
 import org.evoionosp.abstrak.presentation.search.SearchRoute
+import org.evoionosp.abstrak.presentation.settings.AppearanceAction
 import org.evoionosp.abstrak.presentation.settings.AppearanceSettingsScreen
 import org.evoionosp.abstrak.presentation.settings.PreferencesRoute
 import org.evoionosp.abstrak.presentation.settings.ServerConnectionRoute
@@ -38,10 +38,7 @@ internal fun AbstrakNavHost(
     miniTrailPadding: Dp,
     onRetryCatalogBootstrap: () -> Unit,
     onLogout: () -> Unit,
-    onThemePreferenceChange: (ThemePreference) -> Unit,
-    onDynamicColorChange: (Boolean) -> Unit,
-    onCoverThemeChange: (Boolean) -> Unit,
-    onMoonlessNightChange: (Boolean) -> Unit,
+    onAppearanceAction: (AppearanceAction) -> Unit,
     onOpenAudiobook: (AudiobookUiModel) -> Unit,
     onOpenPlayer: () -> Unit,
 ) {
@@ -133,10 +130,7 @@ internal fun AbstrakNavHost(
             AppearanceSettingsScreen(
                 settingsState = settingsState,
                 onBackClick = { navController.popBackStack() },
-                onThemePreferenceChange = onThemePreferenceChange,
-                onDynamicColorChange = onDynamicColorChange,
-                onCoverThemeChange = onCoverThemeChange,
-                onMoonlessNightChange = onMoonlessNightChange,
+                onAction = onAppearanceAction,
                 miniTrailPadding = miniTrailPadding,
                 modifier = Modifier,
             )
